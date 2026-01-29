@@ -3,9 +3,7 @@
 import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSimulationStore } from '@/store/simulation';
-import { useVisualizationStore } from '@/store/visualization';
 import { normalizedToPixel, TEAM_COLORS, AGENT_COLORS } from '@/lib/utils';
-import { HeatmapLayer, PredictionOverlay, KillOverlay } from './overlays';
 import type { PlayerPosition } from '@/lib/api';
 
 interface MapCanvasProps {
@@ -122,7 +120,6 @@ const DEFAULT_MAP_DATA = {
 export function MapCanvas({ width = 800, height = 800 }: MapCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const { positions, spikePlanted, spikeSite, droppedSpikePosition, mapName, phase, status } = useSimulationStore();
-  const { overlays } = useVisualizationStore();
   const [hoveredPlayer, setHoveredPlayer] = useState<string | null>(null);
   const [mapImageLoaded, setMapImageLoaded] = useState(false);
 
@@ -167,11 +164,6 @@ export function MapCanvas({ width = 800, height = 800 }: MapCanvasProps) {
           backgroundSize: '40px 40px',
         }}
       />
-
-      {/* Visualization Overlays - Bottom Layer */}
-      <HeatmapLayer width={width} height={height} />
-      <KillOverlay width={width} height={height} />
-      <PredictionOverlay width={width} height={height} />
 
       {/* Spawn area indicators */}
       <div

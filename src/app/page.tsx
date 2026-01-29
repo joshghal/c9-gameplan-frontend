@@ -8,11 +8,8 @@ import {
   SimulationControls,
   EventLog,
   ConfigPanel,
-  EconomyTimeline,
-  AbilityTimeline,
 } from '@/components/simulation';
 import { ChatInterface, ScoutingReportPanel } from '@/components/coaching';
-import { OverlayControls } from '@/components/ui';
 import { useSimulationStore } from '@/store/simulation';
 
 export default function Home() {
@@ -119,11 +116,6 @@ export default function Home() {
               className="relative"
             >
               <MapCanvas width={800} height={800} />
-
-              {/* Overlay Controls - Floating */}
-              <div className="absolute top-4 right-4 z-20">
-                <OverlayControls compact />
-              </div>
             </motion.div>
 
             {/* Simulation Controls */}
@@ -135,16 +127,6 @@ export default function Home() {
               <SimulationControls />
             </motion.div>
 
-            {/* Timelines Row */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
-              className="grid grid-cols-1 md:grid-cols-2 gap-4"
-            >
-              <EconomyTimeline />
-              <AbilityTimeline />
-            </motion.div>
           </div>
 
           {/* Right Column - Config, Events, and AI */}
@@ -240,7 +222,7 @@ export default function Home() {
                   teams and map configuration
                 </p>
                 <p>
-                  <span className="text-blue-400 font-medium">2.</span> Toggle overlays to see heatmaps and predictions
+                  <span className="text-blue-400 font-medium">2.</span> Run the simulation and observe tactical play
                 </p>
                 <p>
                   <span className="text-blue-400 font-medium">3.</span> Ask Coach Vision for tactical advice
