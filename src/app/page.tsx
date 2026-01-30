@@ -1,20 +1,115 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Shield, Target, Brain, MessageSquare, FileText, ChevronRight } from 'lucide-react';
+import gsap from 'gsap';
+import { Zap, Shield, Target, Brain, MessageSquare, FileText, ChevronRight, GitBranch, HelpCircle } from 'lucide-react';
 import {
   MapCanvas,
   SimulationControls,
   EventLog,
   ConfigPanel,
+  NarrationWalkthrough,
+  WhatIfPanel,
+  MonteCarloPanel,
 } from '@/components/simulation';
 import { ChatInterface, ScoutingReportPanel } from '@/components/coaching';
 import { useSimulationStore } from '@/store/simulation';
+import { useCameraStore } from '@/store/camera';
 
 export default function Home() {
-  const [activePanel, setActivePanel] = useState<'chat' | 'scout' | null>(null);
-  const { defenseTeamId } = useSimulationStore();
+  const [activePanel, setActivePanel] = useState<'chat' | 'scout' | 'whatif' | null>(null);
+  const { defenseTeamId, status, snapshots, positions, events, spikePlanted, spikeSite, currentTime, togglePlayback, reset: resetSim, runToCompletion, setPlaybackSpeed } = useSimulationStore();
+  const { isTheaterMode } = useCameraStore();
+  const gridRef = useRef<HTMLDivElement>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [mapSize, setMapSize] = useState(800);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
+  const isCompleted = status === 'completed';
+
+  // GSAP theater mode layout animation (gap #8)
+  useEffect(() => {
+    if (!gridRef.current) return;
+    if (isTheaterMode) {
+      gsap.to(gridRef.current, {
+        gridTemplateColumns: '1fr 0px',
+        duration: 0.6,
+        ease: 'power2.inOut',
+      });
+    } else {
+      gsap.to(gridRef.current, {
+        gridTemplateColumns: '1fr 400px',
+        duration: 0.6,
+        ease: 'power2.inOut',
+      });
+    }
+  }, [isTheaterMode]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Ignore when typing in inputs
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      switch (e.key) {
+        case ' ':
+          e.preventDefault();
+          togglePlayback();
+          break;
+        case 'r':
+        case 'R':
+          resetSim();
+          break;
+        case 'f':
+        case 'F':
+          runToCompletion();
+          break;
+        case '1':
+          setPlaybackSpeed(0.5);
+          break;
+        case '2':
+          setPlaybackSpeed(1);
+          break;
+        case '3':
+          setPlaybackSpeed(2);
+          break;
+        case '4':
+          setPlaybackSpeed(4);
+          break;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [togglePlayback, resetSim, runToCompletion, setPlaybackSpeed]);
+
+  // Responsive map size
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = entry.contentRect.width;
+        setMapSize(Math.min(w, 800));
+      }
+    });
+    observer.observe(mapContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Build final state for narration
+  const finalState = {
+    positions: positions.map(p => ({
+      player_id: p.player_id,
+      side: p.side,
+      is_alive: p.is_alive,
+      agent: p.agent,
+    })),
+    attack_alive: positions.filter(p => p.side === 'attack' && p.is_alive).length,
+    defense_alive: positions.filter(p => p.side === 'defense' && p.is_alive).length,
+    spike_planted: spikePlanted,
+    spike_site: spikeSite,
+    duration_ms: currentTime,
+    total_events: events.length,
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -85,7 +180,37 @@ export default function Home() {
               </div>
             </motion.div>
 
-            {/* Cloud9 Badge */}
+            {/* Cloud9 Badge + Shortcuts */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-center gap-3"
+            >
+              {/* Keyboard shortcuts button */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowShortcuts(!showShortcuts)}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                  title="Keyboard shortcuts"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+                {showShortcuts && (
+                  <div className="absolute right-0 top-10 bg-black/90 backdrop-blur-sm border border-white/10 rounded-xl p-4 z-50 w-56">
+                    <div className="text-sm font-semibold text-white mb-2">Keyboard Shortcuts</div>
+                    <div className="space-y-1.5 text-xs text-gray-400">
+                      <div className="flex justify-between"><span>Play / Pause</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">Space</kbd></div>
+                      <div className="flex justify-between"><span>Reset</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">R</kbd></div>
+                      <div className="flex justify-between"><span>Fast Forward</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">F</kbd></div>
+                      <div className="flex justify-between"><span>Speed 0.5x</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">1</kbd></div>
+                      <div className="flex justify-between"><span>Speed 1x</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">2</kbd></div>
+                      <div className="flex justify-between"><span>Speed 2x</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">3</kbd></div>
+                      <div className="flex justify-between"><span>Speed 4x</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">4</kbd></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -105,17 +230,21 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="relative z-10 max-w-[1800px] mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-6">
+        <div
+          ref={gridRef}
+          className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-6"
+        >
           {/* Left Column - Map and Controls */}
           <div className="space-y-6">
             {/* Map Canvas with Overlay Controls */}
             <motion.div
+              ref={mapContainerRef}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 }}
-              className="relative"
+              className="relative aspect-square w-full max-w-[800px]"
             >
-              <MapCanvas width={800} height={800} />
+              <MapCanvas width={mapSize} height={mapSize} />
             </motion.div>
 
             {/* Simulation Controls */}
@@ -127,10 +256,29 @@ export default function Home() {
               <SimulationControls />
             </motion.div>
 
+            {/* Post-Simulation: AI Analysis */}
+            <AnimatePresence>
+              {isCompleted && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="space-y-4"
+                >
+                  {/* AI Narration Walkthrough */}
+                  <NarrationWalkthrough
+                    snapshots={snapshots}
+                    finalState={finalState}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
           </div>
 
-          {/* Right Column - Config, Events, and AI */}
-          <div className="space-y-6">
+          {/* Right Column - Config, Events, and AI (collapses in theater mode) */}
+          <div className={`space-y-6 overflow-hidden ${isTheaterMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+               style={{ transition: 'opacity 0.4s ease' }}>
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -139,7 +287,7 @@ export default function Home() {
               <ConfigPanel />
             </motion.div>
 
-            {/* AI Panel Tabs */}
+            {/* AI Panel Tabs — 3 tabs: Coach Vision, Scout Report, What If */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -155,7 +303,7 @@ export default function Home() {
                 }`}
               >
                 <MessageSquare className="w-4 h-4" />
-                <span className="text-sm font-medium">Coach Vision</span>
+                <span className="text-sm font-medium">Coach</span>
                 <ChevronRight className={`w-4 h-4 transition-transform ${activePanel === 'chat' ? 'rotate-90' : ''}`} />
               </button>
               <button
@@ -167,10 +315,29 @@ export default function Home() {
                 }`}
               >
                 <FileText className="w-4 h-4" />
-                <span className="text-sm font-medium">Scout Report</span>
+                <span className="text-sm font-medium">{activePanel === 'scout' ? `Scout: ${defenseTeamId || 'g2'}` : 'Scout'}</span>
                 <ChevronRight className={`w-4 h-4 transition-transform ${activePanel === 'scout' ? 'rotate-90' : ''}`} />
               </button>
+              <button
+                onClick={() => setActivePanel(activePanel === 'whatif' ? null : 'whatif')}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${
+                  activePanel === 'whatif'
+                    ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
+                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20'
+                }`}
+              >
+                <GitBranch className="w-4 h-4" />
+                <span className="text-sm font-medium">What If</span>
+                <ChevronRight className={`w-4 h-4 transition-transform ${activePanel === 'whatif' ? 'rotate-90' : ''}`} />
+              </button>
             </motion.div>
+
+            {/* AI tab hint */}
+            {activePanel === null && (
+              <p className="text-xs text-gray-500 italic px-1">
+                Open Coach to chat with AI, Scout for opponent reports, or What If to test alternate scenarios
+              </p>
+            )}
 
             {/* AI Panels */}
             <AnimatePresence mode="wait">
@@ -194,6 +361,31 @@ export default function Home() {
                   transition={{ duration: 0.2 }}
                 >
                   <ScoutingReportPanel teamName={defenseTeamId || 'g2'} />
+                </motion.div>
+              )}
+              {activePanel === 'whatif' && (
+                <motion.div
+                  key="whatif"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <WhatIfPanel snapshots={snapshots} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Monte Carlo Panel - shows after simulation completes */}
+            <AnimatePresence>
+              {isCompleted && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <MonteCarloPanel />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -225,10 +417,13 @@ export default function Home() {
                   <span className="text-blue-400 font-medium">2.</span> Run the simulation and observe tactical play
                 </p>
                 <p>
-                  <span className="text-blue-400 font-medium">3.</span> Ask Coach Vision for tactical advice
+                  <span className="text-blue-400 font-medium">3.</span> Use Fast Forward to complete instantly with auto-snapshots
                 </p>
                 <p>
-                  <span className="text-blue-400 font-medium">4.</span> Generate scouting reports on opponents
+                  <span className="text-blue-400 font-medium">4.</span> Watch AI Analysis for cinematic tactical narration
+                </p>
+                <p>
+                  <span className="text-blue-400 font-medium">5.</span> Run What-If scenarios and Monte Carlo analysis
                 </p>
               </div>
             </motion.div>

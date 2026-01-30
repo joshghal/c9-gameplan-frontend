@@ -1,6 +1,25 @@
 import { create } from 'zustand';
 import { simulationsApi, type SimulationState, type PlayerPosition, type SimulationEvent } from '@/lib/api';
 
+interface Snapshot {
+  id: string;
+  time_ms: number;
+  phase: string;
+  label?: string;
+  spike_planted: boolean;
+  spike_site: string | null;
+  player_count: { attack: number; defense: number };
+  players?: Array<{
+    player_id: string; team_id: string; side: string;
+    x: number; y: number; is_alive: boolean; health: number;
+    agent?: string; facing_angle?: number; has_spike?: boolean;
+    weapon_name?: string; role?: string;
+  }>;
+  round_state?: Record<string, unknown> | null;
+  player_knowledge?: Record<string, unknown> | null;
+  decisions?: Record<string, unknown> | null;
+}
+
 interface SimulationStore {
   // State
   sessionId: string | null;
@@ -15,11 +34,28 @@ interface SimulationStore {
   isLoading: boolean;
   error: string | null;
 
+  // What-If snapshots
+  snapshots: Snapshot[];
+
+  // What-If state
+  whatIfResult: Record<string, unknown> | null;
+  isRunningWhatIf: boolean;
+
+  // Narration state
+  narrationMode: boolean;
+  isReplayActive: boolean;
+
   // Configuration
   attackTeamId: string;
   defenseTeamId: string;
   mapName: string;
   roundType: string;
+
+  // Live AI commentary (Mode A)
+  aiCommentaryEnabled: boolean;
+  liveNarrationText: string | null;
+  liveNarrationPaused: boolean;
+  previousNarrations: string[];
 
   // Playback
   playbackSpeed: number;
@@ -36,9 +72,27 @@ interface SimulationStore {
   startSimulation: () => Promise<void>;
   tickSimulation: (ticks?: number) => Promise<void>;
   pauseSimulation: () => Promise<void>;
+  runToCompletion: () => Promise<void>;
   setPlaybackSpeed: (speed: number) => void;
   togglePlayback: () => void;
   reset: () => void;
+
+  // Position actions
+  setPositions: (positions: PlayerPosition[]) => void;
+
+  // What-If actions
+  setWhatIfResult: (result: Record<string, unknown> | null) => void;
+  setIsRunningWhatIf: (v: boolean) => void;
+  clearWhatIfResult: () => void;
+
+  // Narration actions
+  setReplayActive: (v: boolean) => void;
+
+  // Live commentary actions
+  setAiCommentaryEnabled: (v: boolean) => void;
+  setLiveNarration: (text: string | null) => void;
+  setLiveNarrationPaused: (v: boolean) => void;
+  continueLiveNarration: () => void;
 }
 
 export const useSimulationStore = create<SimulationStore>((set, get) => ({
@@ -54,6 +108,21 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
   droppedSpikePosition: null,
   isLoading: false,
   error: null,
+  snapshots: [],
+
+  // Live AI commentary
+  aiCommentaryEnabled: true,
+  liveNarrationText: null,
+  liveNarrationPaused: false,
+  previousNarrations: [],
+
+  // What-If state
+  whatIfResult: null,
+  isRunningWhatIf: false,
+
+  // Narration state
+  narrationMode: false,
+  isReplayActive: false,
 
   // Default configuration
   attackTeamId: 'cloud9',
@@ -96,6 +165,7 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
         events: [],
         spikePlanted: false,
         spikeSite: null,
+        snapshots: [],
         isLoading: false,
       });
     } catch (error) {
@@ -148,7 +218,9 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
       const newStatus = state.status === 'completed' ? 'completed' : 'running';
       const isCompleted = newStatus === 'completed';
 
-      set({
+      // Merge any snapshots returned by the tick response (backend auto-captures at kills/plants)
+      const tickSnapshots = (state as unknown as Record<string, unknown>).snapshots as Snapshot[] | undefined;
+      const updates: Partial<SimulationStore> = {
         currentTime: state.current_time_ms,
         phase: state.phase,
         status: newStatus,
@@ -158,13 +230,52 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
         spikeSite: state.spike_site,
         droppedSpikePosition: state.dropped_spike_position,
         isPlaying: isCompleted ? false : get().isPlaying,
-      });
+      };
+      if (Array.isArray(tickSnapshots) && tickSnapshots.length > 0) {
+        const existing = get().snapshots;
+        const existingIds = new Set(existing.map(s => s.id));
+        const newSnaps = tickSnapshots.filter(s => !existingIds.has(s.id));
+        if (newSnaps.length > 0) {
+          updates.snapshots = [...existing, ...newSnaps];
+        }
+      }
+      set(updates);
     } catch (error) {
       // If tick fails with 400, simulation likely completed
       if ((error as { response?: { status?: number } })?.response?.status === 400) {
         set({ status: 'completed', isPlaying: false });
       }
       console.error('Tick error:', error);
+    }
+  },
+
+  runToCompletion: async () => {
+    const { sessionId, status } = get();
+    if (!sessionId || status !== 'running') return;
+
+    set({ isLoading: true });
+
+    try {
+      const response = await simulationsApi.runToCompletion(sessionId);
+      const data = response.data;
+
+      set({
+        currentTime: data.current_time_ms,
+        phase: data.phase,
+        status: 'completed',
+        positions: data.positions,
+        events: data.events,
+        spikePlanted: data.spike_planted,
+        spikeSite: data.spike_site,
+        snapshots: data.snapshots,
+        isPlaying: false,
+        isLoading: false,
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to run to completion',
+        isLoading: false,
+      });
     }
   },
 
@@ -207,6 +318,38 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
       isLoading: false,
       error: null,
       isPlaying: false,
+      snapshots: [],
+      whatIfResult: null,
+      isRunningWhatIf: false,
+      narrationMode: false,
+      isReplayActive: false,
+      liveNarrationText: null,
+      liveNarrationPaused: false,
+      previousNarrations: [],
     });
   },
+
+  // Position actions
+  setPositions: (positions) => set({ positions }),
+
+  // What-If actions
+  setWhatIfResult: (result) => set({ whatIfResult: result }),
+  setIsRunningWhatIf: (v) => set({ isRunningWhatIf: v }),
+  clearWhatIfResult: () => set({ whatIfResult: null }),
+
+  // Narration actions
+  setReplayActive: (v) => set({ isReplayActive: v }),
+
+  // Live commentary actions
+  setAiCommentaryEnabled: (v) => set({ aiCommentaryEnabled: v }),
+  setLiveNarration: (text) => set({ liveNarrationText: text }),
+  setLiveNarrationPaused: (v) => set({ liveNarrationPaused: v, isPlaying: !v }),
+  continueLiveNarration: () => set((state) => ({
+    liveNarrationPaused: false,
+    liveNarrationText: null,
+    isPlaying: true,
+    previousNarrations: state.liveNarrationText
+      ? [...state.previousNarrations.slice(-4), state.liveNarrationText]
+      : state.previousNarrations,
+  })),
 }));

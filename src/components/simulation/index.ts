@@ -2,3 +2,7 @@ export { MapCanvas } from './MapCanvas';
 export { SimulationControls } from './SimulationControls';
 export { EventLog } from './EventLog';
 export { ConfigPanel } from './ConfigPanel';
+export { NarrationWalkthrough } from './NarrationWalkthrough';
+export { WhatIfPanel } from './WhatIfPanel';
+export { WhatIfComparisonView } from './WhatIfComparisonView';
+export { MonteCarloPanel } from './MonteCarloPanel';

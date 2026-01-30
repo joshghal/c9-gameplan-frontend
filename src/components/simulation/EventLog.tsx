@@ -1,12 +1,13 @@
 'use client';
 
+import { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Skull, Target, Bomb, Shield } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
 import { formatTime } from '@/lib/utils';
 
 export function EventLog() {
-  const { events } = useSimulationStore();
+  const { events, positions } = useSimulationStore();
 
   const getEventIcon = (type: string) => {
     switch (type) {
@@ -21,24 +22,32 @@ export function EventLog() {
     }
   };
 
+  const resolvePlayerName = (playerId: string | null) => {
+    if (!playerId) return 'Unknown';
+    const player = positions.find(p => p.player_id === playerId);
+    return player?.name ?? playerId;
+  };
+
   const getEventDescription = (event: typeof events[0]) => {
     switch (event.event_type) {
       case 'kill':
         const killerId = String(event.details?.killer_id || 'Unknown');
+        const killerName = resolvePlayerName(killerId);
+        const victimName = resolvePlayerName(event.player_id);
         const headshot = Boolean(event.details?.headshot);
         return (
           <span>
-            <span className="text-blue-400">{killerId}</span>
+            <span className="text-blue-400">{killerName}</span>
             {headshot && <span className="text-yellow-400 ml-1">⚡</span>}
             <span className="text-gray-400"> eliminated </span>
-            <span className="text-red-400">{event.player_id}</span>
+            <span className="text-red-400">{victimName}</span>
           </span>
         );
       case 'spike_plant':
         const site = String(event.details?.site || 'Unknown');
         return (
           <span>
-            <span className="text-red-400">{event.player_id}</span>
+            <span className="text-red-400">{resolvePlayerName(event.player_id)}</span>
             <span className="text-gray-400"> planted spike at </span>
             <span className="text-yellow-400">{site}</span>
           </span>
@@ -46,7 +55,7 @@ export function EventLog() {
       case 'spike_defuse':
         return (
           <span>
-            <span className="text-blue-400">{event.player_id}</span>
+            <span className="text-blue-400">{resolvePlayerName(event.player_id)}</span>
             <span className="text-gray-400"> defused the spike</span>
           </span>
         );
@@ -59,14 +68,23 @@ export function EventLog() {
     }
   };
 
-  // Sort events by time (newest first)
-  const sortedEvents = [...events].sort((a, b) => b.timestamp_ms - a.timestamp_ms);
+  // Sort events by time (oldest first — chronological)
+  const sortedEvents = [...events].sort((a, b) => a.timestamp_ms - b.timestamp_ms);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new events arrive
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [events.length]);
 
   return (
     <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
       <h3 className="text-lg font-semibold text-white mb-4">Event Log</h3>
 
-      <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+      <div ref={scrollRef} className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
         <AnimatePresence mode="popLayout">
           {sortedEvents.length === 0 ? (
             <div className="text-gray-500 text-sm text-center py-4">

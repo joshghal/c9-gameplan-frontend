@@ -12,25 +12,6 @@ export function formatTime(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-export function gameToMinimap(
-  gameX: number,
-  gameY: number,
-  mapConfig: {
-    x_multiplier: number;
-    y_multiplier: number;
-    x_scalar_add: number;
-    y_scalar_add: number;
-  }
-): { x: number; y: number } {
-  // VALORANT coordinates are SWAPPED:
-  // minimapX = gameY * xMultiplier + xScalarToAdd
-  // minimapY = gameX * yMultiplier + yScalarToAdd
-  return {
-    x: gameY * mapConfig.x_multiplier + mapConfig.x_scalar_add,
-    y: gameX * mapConfig.y_multiplier + mapConfig.y_scalar_add,
-  };
-}
-
 export function normalizedToPixel(
   normalizedX: number,
   normalizedY: number,

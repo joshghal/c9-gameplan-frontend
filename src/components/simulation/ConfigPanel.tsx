@@ -65,14 +65,14 @@ export function ConfigPanel() {
           <Map className="w-4 h-4" />
           Map
         </label>
-        <div className="grid grid-cols-3 gap-2">
-          {(maps || []).slice(0, 9).map((map) => (
+        <div className="grid grid-cols-4 gap-2">
+          {(maps || []).map((map) => (
             <button
               key={map.map_name}
               onClick={() => setConfig({ mapName: map.map_name })}
               disabled={isDisabled}
               className={cn(
-                'p-2 rounded-lg text-sm font-medium transition-all',
+                'p-2 rounded-lg text-xs font-medium transition-all',
                 mapName === map.map_name
                   ? 'bg-blue-500 text-white'
                   : 'bg-white/5 text-gray-400 hover:bg-white/10',

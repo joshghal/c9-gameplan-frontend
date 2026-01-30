@@ -47,6 +47,7 @@ export interface Player {
 export interface PlayerPosition {
   player_id: string;
   team_id: string;
+  name?: string;
   x: number;
   y: number;
   is_alive: boolean;
@@ -88,26 +89,6 @@ export interface SimulationConfig {
   round_type: string;
 }
 
-export interface Pattern {
-  id: number;
-  team_id: string | null;
-  map_name: string;
-  side: string;
-  phase: string;
-  pattern_name: string;
-  waypoints: Array<{
-    timestamp_ms: number;
-    x: number;
-    y: number;
-    variance_x?: number;
-    variance_y?: number;
-  }>;
-  frequency: number;
-  success_rate: number | null;
-  sample_count: number;
-  is_active: boolean;
-}
-
 // API Functions
 export const mapsApi = {
   getAll: () => api.get<MapConfig[]>('/maps/'),
@@ -127,14 +108,14 @@ export const patternsApi = {
     side?: string;
     phase?: string;
     limit?: number;
-  }) => api.get<Pattern[]>('/patterns/', { params }),
+  }) => api.get<unknown[]>('/patterns/', { params }),
   query: (query: {
     team_id?: string;
     map_name: string;
     side: string;
     phase: string;
     limit?: number;
-  }) => api.post<Pattern[]>('/patterns/query', query),
+  }) => api.post<unknown[]>('/patterns/query', query),
 };
 
 export const simulationsApi = {
@@ -153,26 +134,49 @@ export const simulationsApi = {
   pause: (sessionId: string) =>
     api.post<{ id: string }>(`/simulations/${sessionId}/pause`),
 
-  createSnapshot: (sessionId: string) =>
-    api.post<{ snapshot_id: string; time_ms: number }>(`/simulations/${sessionId}/snapshot`),
-
   runWhatIf: (sessionId: string, scenario: {
     snapshot_time_ms: number;
     modifications: Record<string, { x?: number; y?: number; is_alive?: boolean }>;
+    round_type_override?: string;
+    swap_sides?: boolean;
   }) => api.post<SimulationState>(`/simulations/${sessionId}/what-if`, scenario),
 
-  getAnalysis: (sessionId: string) =>
-    api.get<{
-      winner: string;
-      total_duration_ms: number;
-      kills: SimulationEvent[];
+  runToCompletion: (sessionId: string) =>
+    api.post<{
+      session_id: string;
+      status: string;
+      current_time_ms: number;
+      phase: string;
+      positions: PlayerPosition[];
+      events: SimulationEvent[];
       spike_planted: boolean;
       spike_site: string | null;
-      attack_alive: number;
-      defense_alive: number;
-      improvement_suggestions: string[];
-      key_moments: Array<{ time_ms: number; type: string; details: Record<string, unknown> }>;
-    }>(`/simulations/${sessionId}/analysis`),
+      snapshots: Array<{
+        id: string;
+        time_ms: number;
+        phase: string;
+        spike_planted: boolean;
+        spike_site: string | null;
+        player_count: { attack: number; defense: number };
+        players?: Array<{
+          player_id: string; team_id: string; side: string;
+          x: number; y: number; is_alive: boolean; health: number;
+          agent?: string; facing_angle?: number; has_spike?: boolean;
+          weapon_name?: string; role?: string;
+        }>;
+      }>;
+    }>(`/simulations/${sessionId}/run-to-completion`),
+
+  compare: (sessionId: string, scenario: {
+    snapshot_time_ms: number;
+    modifications: Record<string, Record<string, unknown>>;
+  }) => api.post(`/simulations/${sessionId}/compare`, scenario),
+
+  monteCarlo: (sessionId: string, iterations: number = 20) =>
+    api.post(`/simulations/${sessionId}/monte-carlo?iterations=${iterations}`),
+
+  getSnapshots: (sessionId: string) =>
+    api.get(`/simulations/${sessionId}/snapshots`),
 };
 
 // Coaching Types
@@ -232,6 +236,16 @@ export interface MistakeAnalysis {
 export const coachingApi = {
   chat: (request: ChatRequest) =>
     api.post<ChatResponse>('/coaching/chat', request),
+
+  narrateSnapshot: (data: {
+    session_id: string;
+    snapshot: Record<string, unknown>;
+    previous_narrations?: string[];
+    narration_type?: string;
+    map_name?: string;
+    attack_team?: string;
+    defense_team?: string;
+  }) => api.post('/coaching/narrate-snapshot', data),
 
   // Note: streaming is handled separately with fetch API for SSE
 
