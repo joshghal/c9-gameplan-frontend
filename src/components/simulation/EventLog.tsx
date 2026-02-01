@@ -6,19 +6,23 @@ import { Skull, Target, Bomb, Shield } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
 import { formatTime } from '@/lib/utils';
 
-export function EventLog() {
+interface EventLogProps {
+  variant?: 'full' | 'compact';
+}
+
+export function EventLog({ variant = 'full' }: EventLogProps) {
   const { events, positions } = useSimulationStore();
 
   const getEventIcon = (type: string) => {
     switch (type) {
       case 'kill':
-        return <Skull className="w-4 h-4 text-red-500" />;
+        return <Skull className="w-4 h-4" style={{ color: 'var(--val-red)' }} />;
       case 'spike_plant':
-        return <Bomb className="w-4 h-4 text-orange-500" />;
+        return <Bomb className="w-4 h-4" style={{ color: 'var(--val-red)' }} />;
       case 'spike_defuse':
-        return <Shield className="w-4 h-4 text-blue-500" />;
+        return <Shield className="w-4 h-4" style={{ color: 'var(--val-teal)' }} />;
       default:
-        return <Target className="w-4 h-4 text-gray-500" />;
+        return <Target className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />;
     }
   };
 
@@ -37,31 +41,31 @@ export function EventLog() {
         const headshot = Boolean(event.details?.headshot);
         return (
           <span>
-            <span className="text-blue-400">{killerName}</span>
-            {headshot && <span className="text-yellow-400 ml-1">⚡</span>}
-            <span className="text-gray-400"> eliminated </span>
-            <span className="text-red-400">{victimName}</span>
+            <span style={{ color: 'var(--val-teal)' }}>{killerName}</span>
+            {headshot && <span className="ml-1" style={{ color: 'var(--val-red)' }}>HS</span>}
+            <span style={{ color: 'var(--text-tertiary)' }}> eliminated </span>
+            <span style={{ color: 'var(--val-red)' }}>{victimName}</span>
           </span>
         );
       case 'spike_plant':
         const site = String(event.details?.site || 'Unknown');
         return (
           <span>
-            <span className="text-red-400">{resolvePlayerName(event.player_id)}</span>
-            <span className="text-gray-400"> planted spike at </span>
-            <span className="text-yellow-400">{site}</span>
+            <span style={{ color: 'var(--val-red)' }}>{resolvePlayerName(event.player_id)}</span>
+            <span style={{ color: 'var(--text-tertiary)' }}> planted spike at </span>
+            <span style={{ color: 'var(--text-primary)' }}>{site}</span>
           </span>
         );
       case 'spike_defuse':
         return (
           <span>
-            <span className="text-blue-400">{resolvePlayerName(event.player_id)}</span>
-            <span className="text-gray-400"> defused the spike</span>
+            <span style={{ color: 'var(--val-teal)' }}>{resolvePlayerName(event.player_id)}</span>
+            <span style={{ color: 'var(--text-tertiary)' }}> defused the spike</span>
           </span>
         );
       default:
         return (
-          <span className="text-gray-400">
+          <span style={{ color: 'var(--text-tertiary)' }}>
             {event.event_type}
           </span>
         );
@@ -80,14 +84,49 @@ export function EventLog() {
     }
   }, [events.length]);
 
-  return (
-    <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-      <h3 className="text-lg font-semibold text-white mb-4">Event Log</h3>
+  // ─── COMPACT VARIANT (kill-feed overlay) ───
+  if (variant === 'compact') {
+    const recentEvents = sortedEvents.slice(-6);
+    return (
+      <div className="space-y-1.5">
+        <AnimatePresence mode="popLayout">
+          {recentEvents.map((event, index) => (
+            <motion.div
+              key={`${event.timestamp_ms}-${index}`}
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 40 }}
+              className="frosted-glass flex items-center gap-2.5 px-3 py-2"
+              style={{
+                borderLeft: `2px solid ${event.event_type === 'kill' ? 'var(--val-red)' : event.event_type === 'spike_defuse' ? 'var(--val-teal)' : 'var(--c9-cyan)'}`,
+              }}
+            >
+              <div className="flex-shrink-0">{getEventIcon(event.event_type)}</div>
+              <div className="flex-1 min-w-0 text-sm truncate">{getEventDescription(event)}</div>
+              <div className="flex-shrink-0 data-readout text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                {formatTime(event.timestamp_ms)}
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        {recentEvents.length === 0 && (
+          <div className="frosted-glass px-3 py-2 text-xs italic" style={{ color: 'var(--text-tertiary)' }}>
+            Awaiting events...
+          </div>
+        )}
+      </div>
+    );
+  }
 
-      <div ref={scrollRef} className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+  // ─── FULL VARIANT ───
+  return (
+    <div className="hud-panel hud-panel-cyan p-5">
+      <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--c9-cyan)' }}>Event Log</h3>
+
+      <div ref={scrollRef} className="space-y-1.5 max-h-64 overflow-y-auto custom-scrollbar">
         <AnimatePresence mode="popLayout">
           {sortedEvents.length === 0 ? (
-            <div className="text-gray-500 text-sm text-center py-4">
+            <div className="text-xs text-center py-4" style={{ color: 'var(--text-tertiary)' }}>
               No events yet...
             </div>
           ) : (
@@ -97,7 +136,11 @@ export function EventLog() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="flex items-center gap-3 p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                className="flex items-center gap-3 p-2 transition-colors"
+                style={{
+                  background: 'var(--bg-elevated)',
+                  borderLeft: `2px solid ${event.event_type === 'kill' ? 'var(--val-red)' : event.event_type === 'spike_defuse' ? 'var(--val-teal)' : 'var(--c9-cyan)'}`,
+                }}
               >
                 <div className="flex-shrink-0">
                   {getEventIcon(event.event_type)}
@@ -107,7 +150,7 @@ export function EventLog() {
                     {getEventDescription(event)}
                   </div>
                 </div>
-                <div className="flex-shrink-0 text-xs text-gray-500 font-mono">
+                <div className="flex-shrink-0 data-readout text-xs" style={{ color: 'var(--text-tertiary)' }}>
                   {formatTime(event.timestamp_ms)}
                 </div>
               </motion.div>
@@ -118,25 +161,25 @@ export function EventLog() {
 
       {/* Stats Summary */}
       {events.length > 0 && (
-        <div className="mt-4 pt-4 border-t border-white/10">
+        <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border-default)' }}>
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold text-red-400">
+              <div className="data-readout-lg" style={{ color: 'var(--val-red)' }}>
                 {events.filter((e) => e.event_type === 'kill').length}
               </div>
-              <div className="text-xs text-gray-500">Kills</div>
+              <div className="text-xs uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-tertiary)' }}>Kills</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-yellow-400">
+              <div className="data-readout-lg" style={{ color: 'var(--c9-cyan-light)' }}>
                 {events.filter((e) => (e.details?.headshot as boolean)).length}
               </div>
-              <div className="text-xs text-gray-500">Headshots</div>
+              <div className="text-xs uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-tertiary)' }}>Headshots</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-orange-400">
+              <div className="data-readout-lg" style={{ color: 'var(--c9-cyan-light)' }}>
                 {events.filter((e) => e.event_type === 'spike_plant').length}
               </div>
-              <div className="text-xs text-gray-500">Plants</div>
+              <div className="text-xs uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-tertiary)' }}>Plants</div>
             </div>
           </div>
         </div>

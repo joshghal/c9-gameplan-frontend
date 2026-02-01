@@ -165,7 +165,7 @@ export function NarrationWalkthrough({ snapshots, finalState }: NarrationWalkthr
       <button
         onClick={startNarration}
         disabled={isLoading || snapshots.length === 0}
-        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        className="btn-c9 w-full flex items-center justify-center gap-2 py-3 px-4 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isLoading ? (
           <>
@@ -192,7 +192,8 @@ export function NarrationWalkthrough({ snapshots, finalState }: NarrationWalkthr
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex"
+          className="fixed inset-0 z-50 flex"
+          style={{ background: 'var(--bg-abyss)', backdropFilter: 'blur(4px)' }}
         >
           {/* Left: Map Canvas — fills available height */}
           <div className="flex-1 flex items-center justify-center p-4 min-w-0 overflow-hidden">
@@ -200,23 +201,30 @@ export function NarrationWalkthrough({ snapshots, finalState }: NarrationWalkthr
           </div>
 
           {/* Right: Narration Panel */}
-          <div className="w-[360px] flex-shrink-0 flex flex-col border-l border-white/10 bg-black/60 overflow-hidden">
+          <div className="w-[360px] flex-shrink-0 flex flex-col overflow-hidden relative" style={{
+            borderLeft: '1px solid var(--border-default)',
+            background: 'rgba(6,8,13,0.92)',
+            backdropFilter: 'blur(24px) saturate(1.2)',
+            WebkitBackdropFilter: 'blur(24px) saturate(1.2)',
+          }}>
+            {/* Light leak at top */}
+            <div className="light-leak" style={{ height: '200px', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 0 }} />
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+            <div className="relative z-10 flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border-default)' }}>
               <div className="flex items-center gap-2">
-                <Film className="w-5 h-5 text-purple-400" />
-                <span className="text-sm font-semibold text-purple-400 uppercase tracking-wider">
+                <Film className="w-5 h-5" style={{ color: 'var(--c9-cyan)' }} />
+                <span className="text-sm font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--c9-cyan)' }}>
                   AI Analysis
                 </span>
                 {moments.length > 0 && (
-                  <span className="text-xs text-gray-500 ml-2">
+                  <span className="text-xs data-readout" style={{ color: 'var(--text-tertiary)' }}>
                     {currentMoment >= 0 ? currentMoment + 1 : 0}/{moments.length}
                   </span>
                 )}
               </div>
               <button
                 onClick={handleStop}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                className="btn-tactical p-1.5"
                 title="Close (ESC)"
               >
                 <X className="w-5 h-5" />
@@ -224,50 +232,85 @@ export function NarrationWalkthrough({ snapshots, finalState }: NarrationWalkthr
             </div>
 
             {/* Current narration */}
-            <div className="px-5 py-4 min-h-[120px] border-b border-white/10">
+            <div className="relative z-10 px-5 py-4 min-h-[120px]" style={{ borderBottom: '1px solid var(--border-default)' }}>
               {currentMoment >= 0 && moments[currentMoment] ? (
                 <motion.div
                   key={currentMoment}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                 >
-                  <span className="text-purple-400 font-mono text-xs">
+                  <span className="data-readout text-xs" style={{ color: 'var(--c9-cyan)' }}>
                     [{snapshots[currentMoment]?.time_ms ?? 0}ms]
                   </span>
                   <div className="mt-2">
                     <Markdown>{resolveNarrationNames(moments[currentMoment].narration)}</Markdown>
                   </div>
                 </motion.div>
+              ) : isLoading ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-4">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                  >
+                    <Film className="w-6 h-6" style={{ color: 'var(--c9-cyan)' }} />
+                  </motion.div>
+                  <div className="text-sm font-medium" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--c9-cyan)' }}>
+                    Analyzing round...
+                  </div>
+                  <div className="w-full space-y-2 mt-1">
+                    <motion.div
+                      className="h-2.5 rounded-sm"
+                      style={{ background: 'var(--bg-elevated)' }}
+                      animate={{ opacity: [0.3, 0.7, 0.3] }}
+                      transition={{ repeat: Infinity, duration: 1.5 }}
+                    />
+                    <motion.div
+                      className="h-2.5 rounded-sm w-3/4"
+                      style={{ background: 'var(--bg-elevated)' }}
+                      animate={{ opacity: [0.3, 0.7, 0.3] }}
+                      transition={{ repeat: Infinity, duration: 1.5, delay: 0.3 }}
+                    />
+                    <motion.div
+                      className="h-2.5 rounded-sm w-1/2"
+                      style={{ background: 'var(--bg-elevated)' }}
+                      animate={{ opacity: [0.3, 0.7, 0.3] }}
+                      transition={{ repeat: Infinity, duration: 1.5, delay: 0.6 }}
+                    />
+                  </div>
+                </div>
               ) : (
-                <div className="text-gray-500 text-sm italic">
-                  {isLoading ? 'Generating narration...' : 'Ready'}
+                <div className="text-sm italic" style={{ color: 'var(--text-tertiary)' }}>
+                  Ready
                 </div>
               )}
             </div>
 
             {/* Moment dots (clickable) */}
-            <div className="flex gap-1.5 px-5 py-3 border-b border-white/10">
+            <div className="relative z-10 flex gap-1.5 px-5 py-3" style={{ borderBottom: '1px solid var(--border-default)' }}>
               {moments.map((_, i) => (
                 <button
                   key={i}
                   onClick={() => seekToMoment(i)}
-                  className={`h-2.5 flex-1 rounded-full transition-colors cursor-pointer hover:opacity-80 ${
-                    i === currentMoment
-                      ? 'bg-purple-500'
+                  className="h-2 flex-1 transition-colors cursor-pointer hover:opacity-80"
+                  style={{
+                    background: i === currentMoment
+                      ? 'var(--c9-cyan)'
                       : i < currentMoment
-                      ? 'bg-purple-500/40'
-                      : 'bg-white/10'
-                  }`}
+                      ? 'rgba(0,174,239,0.4)'
+                      : 'var(--bg-elevated)',
+                    clipPath: 'var(--clip-corner-sm)',
+                    boxShadow: i === currentMoment ? '0 0 8px rgba(0,174,239,0.4)' : 'none',
+                  }}
                   title={`Moment ${i + 1}`}
                 />
               ))}
             </div>
 
             {/* Controls */}
-            <div className="flex items-center justify-center gap-3 py-4 border-b border-white/10">
+            <div className="relative z-10 flex items-center justify-center gap-3 py-4" style={{ borderBottom: '1px solid var(--border-default)' }}>
               <button
                 onClick={handleStop}
-                className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400"
+                className="btn-tactical p-2"
                 title="Stop"
               >
                 <Square className="w-4 h-4" />
@@ -278,14 +321,19 @@ export function NarrationWalkthrough({ snapshots, finalState }: NarrationWalkthr
                   seekToMoment(prev);
                 }}
                 disabled={currentMoment <= 0}
-                className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 disabled:opacity-30"
+                className="btn-tactical p-2 disabled:opacity-30"
                 title="Previous"
               >
                 <SkipBack className="w-4 h-4" />
               </button>
               <button
                 onClick={isPlaying ? pause : play}
-                className="p-3 rounded-full bg-purple-500 hover:bg-purple-600 text-white"
+                className="p-3"
+                style={{
+                  background: 'var(--c9-cyan)',
+                  clipPath: 'var(--clip-corner-sm)',
+                  color: '#000',
+                }}
               >
                 {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
               </button>
@@ -295,7 +343,7 @@ export function NarrationWalkthrough({ snapshots, finalState }: NarrationWalkthr
                   seekToMoment(next);
                 }}
                 disabled={currentMoment >= moments.length - 1}
-                className="p-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 disabled:opacity-30"
+                className="btn-tactical p-2 disabled:opacity-30"
                 title="Next"
               >
                 <SkipForward className="w-4 h-4" />
@@ -303,20 +351,22 @@ export function NarrationWalkthrough({ snapshots, finalState }: NarrationWalkthr
             </div>
 
             {/* All moments list (scrollable) */}
-            <div className="flex-1 overflow-y-auto px-5 py-3 custom-scrollbar">
-              <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">All Moments</div>
+            <div className="relative z-10 flex-1 overflow-y-auto px-5 py-3 custom-scrollbar">
+              <div className="text-xs uppercase tracking-widest mb-2" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-tertiary)' }}>All Moments</div>
               <div className="space-y-2">
                 {moments.map((m, i) => (
                   <button
                     key={i}
                     onClick={() => seekToMoment(i)}
-                    className={`w-full text-left p-3 rounded-lg transition-colors text-sm ${
-                      i === currentMoment
-                        ? 'bg-purple-500/20 border border-purple-500/30 text-white'
-                        : 'bg-white/5 border border-transparent text-gray-400 hover:text-white hover:bg-white/10'
-                    }`}
+                    className="w-full text-left p-3 transition-all text-sm"
+                    style={{
+                      background: i === currentMoment ? 'rgba(0,174,239,0.12)' : 'var(--bg-elevated)',
+                      border: `1px solid ${i === currentMoment ? 'rgba(0,174,239,0.3)' : 'transparent'}`,
+                      clipPath: 'var(--clip-corner-sm)',
+                      color: i === currentMoment ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    }}
                   >
-                    <span className="font-mono text-xs text-purple-400 mr-1">{i + 1}.</span>
+                    <span className="data-readout text-xs mr-1" style={{ color: 'var(--c9-cyan)' }}>{i + 1}.</span>
                     {(() => { const t = resolveNarrationNames(m.narration); return t.length > 100 ? t.slice(0, 100) + '...' : t; })()}
                   </button>
                 ))}
@@ -324,7 +374,7 @@ export function NarrationWalkthrough({ snapshots, finalState }: NarrationWalkthr
             </div>
 
             {error && (
-              <div className="px-5 py-3 text-red-400 text-xs text-center border-t border-white/10">{error}</div>
+              <div className="px-5 py-3 text-xs text-center" style={{ borderTop: '1px solid var(--border-default)', color: 'var(--val-red)' }}>{error}</div>
             )}
           </div>
         </motion.div>
@@ -338,7 +388,7 @@ export function NarrationWalkthrough({ snapshots, finalState }: NarrationWalkthr
       {!isModalOpen && moments.length > 0 && (
         <button
           onClick={() => { setIsModalOpen(true); setTheaterMode(true); }}
-          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-medium transition-all"
+          className="btn-c9 w-full flex items-center justify-center gap-2 py-3 px-4 font-medium"
         >
           <Film className="w-5 h-5" />
           Resume AI Analysis

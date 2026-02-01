@@ -121,18 +121,9 @@ const DEFAULT_MAP_DATA = {
 export function MapCanvas({ width = 800, height = 800 }: MapCanvasProps) {
   const mapLayerRef = useRef<HTMLDivElement>(null);
   const { positions, spikePlanted, spikeSite, droppedSpikePosition, mapName, phase, status } = useSimulationStore();
-  const { x: camX, y: camY, zoom, isTheaterMode, highlightedPlayers, focusLabel, isAnimating } = useCameraStore();
+  const { x: camX, y: camY, zoom, isTheaterMode, highlightedPlayers } = useCameraStore();
   const [hoveredPlayer, setHoveredPlayer] = useState<string | null>(null);
   const [mapImageLoaded, setMapImageLoaded] = useState(false);
-
-  // Resolve player IDs to names in any display string
-  const resolveNames = (text: string): string => {
-    let resolved = text;
-    for (const p of positions) {
-      if (p.name) resolved = resolved.replaceAll(p.player_id, p.name);
-    }
-    return resolved;
-  };
 
   // GSAP camera animation — only transforms the map layer
   useEffect(() => {
@@ -163,8 +154,8 @@ export function MapCanvas({ width = 800, height = 800 }: MapCanvasProps) {
   return (
     // Outer container: clips zoomed content, holds HUD overlay
     <div
-      className="relative rounded-xl overflow-hidden bg-slate-900"
-      style={{ width, height }}
+      className="relative rounded-xl overflow-hidden"
+      style={{ width, height, background: 'rgba(10,14,23,0.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
     >
       {/* Transformable map layer — GSAP zooms/pans this */}
       <div
@@ -186,7 +177,7 @@ export function MapCanvas({ width = 800, height = 800 }: MapCanvasProps) {
 
         {/* Fallback gradient background */}
         {!mapImageLoaded && (
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900" />
+          <div className="absolute inset-0" style={{ background: 'rgba(10,14,23,0.5)' }} />
         )}
 
         {/* Grid overlay - subtle */}
@@ -461,17 +452,6 @@ export function MapCanvas({ width = 800, height = 800 }: MapCanvasProps) {
 
       {/* HUD overlay — NOT affected by GSAP zoom/pan */}
       <div className="absolute inset-0 pointer-events-none z-30">
-        {/* Focus label in theater mode */}
-        {isTheaterMode && focusLabel && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-sm rounded-lg px-6 py-2 z-50"
-          >
-            <div className="text-sm font-semibold text-purple-300">{resolveNames(focusLabel)}</div>
-          </motion.div>
-        )}
-
         {/* Player count indicator */}
         <div className="absolute top-4 right-4 bg-black/60 backdrop-blur-sm rounded-lg px-4 py-2 flex gap-4">
           <div className="text-center">
@@ -489,8 +469,12 @@ export function MapCanvas({ width = 800, height = 800 }: MapCanvasProps) {
         </div>
 
         {/* Map name */}
-        <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-sm rounded-lg px-4 py-2">
-          <div className="text-2xl font-bold text-white capitalize">{mapName}</div>
+        <div className="absolute bottom-3 right-3 px-2.5 py-1" style={{
+          background: 'rgba(6,8,13,0.6)',
+          backdropFilter: 'blur(8px)',
+          clipPath: 'var(--clip-corner-sm)',
+        }}>
+          <div className="text-xs font-bold uppercase tracking-wider capitalize" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-secondary)' }}>{mapName}</div>
         </div>
 
         {/* Status badges */}
@@ -502,9 +486,15 @@ export function MapCanvas({ width = 800, height = 800 }: MapCanvasProps) {
           </div>
         )}
         {status === 'completed' && (
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2">
-            <div className="bg-black/70 backdrop-blur-sm rounded-full px-4 py-2 text-sm text-gray-300">
-              Round Complete — Reset to try again
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20">
+            <div className="text-xs uppercase tracking-widest px-3 py-1.5" style={{
+              fontFamily: 'var(--font-rajdhani)',
+              color: 'var(--c9-cyan)',
+              background: 'rgba(6,8,13,0.6)',
+              backdropFilter: 'blur(8px)',
+              clipPath: 'var(--clip-corner-sm)',
+            }}>
+              Round Complete
             </div>
           </div>
         )}

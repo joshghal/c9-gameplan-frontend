@@ -22,6 +22,7 @@ interface UseCoachingOptions {
   sessionId?: string;
   mapContext?: string;
   teamContext?: string;
+  simulationContext?: Record<string, unknown>;
 }
 
 export function useCoaching(options: UseCoachingOptions = {}) {
@@ -72,6 +73,7 @@ export function useCoaching(options: UseCoachingOptions = {}) {
             map_context: options.mapContext,
             team_context: options.teamContext,
             use_tools: true,
+            simulation_context: options.simulationContext || undefined,
           }),
           signal: abortControllerRef.current.signal,
         });
@@ -169,7 +171,7 @@ export function useCoaching(options: UseCoachingOptions = {}) {
         });
       }
     }
-  }, [sessionId, options.mapContext, options.teamContext, addMessage, updateMessage]);
+  }, [sessionId, options.mapContext, options.teamContext, options.simulationContext, addMessage, updateMessage]);
 
   const stopStreaming = useCallback(() => {
     abortControllerRef.current?.abort();

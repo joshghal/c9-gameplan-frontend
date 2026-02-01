@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useScoutingReport, useGenerateScoutingReport } from '@/hooks/useCoaching';
 import { cn } from '@/lib/utils';
+import { Markdown } from '@/components/ui/Markdown';
 
 interface ScoutingReportPanelProps {
   teamName: string;
@@ -57,56 +58,53 @@ export function ScoutingReportPanel({
       id: 'executive_summary',
       title: 'Executive Summary',
       icon: FileText,
-      content: report?.report?.executive_summary,
     },
     {
       id: 'attack_tendencies',
       title: 'Attack Tendencies',
       icon: Target,
-      content: report?.report?.attack_tendencies,
     },
     {
       id: 'defense_tendencies',
       title: 'Defense Tendencies',
       icon: Shield,
-      content: report?.report?.defense_tendencies,
     },
     {
       id: 'key_players',
       title: 'Key Players',
       icon: Users,
-      content: report?.report?.key_players,
     },
     {
       id: 'economic_patterns',
       title: 'Economic Patterns',
       icon: DollarSign,
-      content: report?.report?.economic_patterns,
     },
     {
       id: 'recommended_counters',
       title: 'Recommended Counters',
       icon: Swords,
-      content: report?.report?.recommended_counters,
     },
-  ];
+  ].map(s => ({ ...s, content: report?.report?.[s.id as keyof typeof report.report] as string | undefined }));
 
   return (
     <div className={cn(
-      "bg-black/40 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden",
+      "hud-panel overflow-hidden",
       className
-    )}>
+    )} style={{ borderTopColor: 'var(--neon-yellow)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--border-default)' }}>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
-            <FileText className="w-4 h-4 text-white" />
+          <div className="w-7 h-7 flex items-center justify-center" style={{
+            background: 'var(--neon-yellow)',
+            clipPath: 'var(--clip-corner-sm)',
+          }}>
+            <FileText className="w-3.5 h-3.5 text-black" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-white">
+            <h3 className="text-sm font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--neon-yellow)' }}>
               Scouting Report
             </h3>
-            <p className="text-xs text-gray-400">
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
               {teamName} {mapName && `on ${mapName}`}
             </p>
           </div>
@@ -115,7 +113,7 @@ export function ScoutingReportPanel({
         <button
           onClick={handleRefresh}
           disabled={generateMutation.isPending}
-          className="p-2 text-gray-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
+          className="btn-tactical p-2 disabled:opacity-50"
           title="Refresh report"
         >
           <RefreshCw className={cn(
@@ -126,28 +124,28 @@ export function ScoutingReportPanel({
       </div>
 
       {/* Content */}
-      <div className="max-h-[500px] overflow-y-auto">
+      <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 text-blue-400 animate-spin mb-3" />
-            <p className="text-sm text-gray-400">Generating report...</p>
+            <Loader2 className="w-8 h-8 animate-spin mb-3" style={{ color: 'var(--c9-cyan)' }} />
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Generating report...</p>
           </div>
         ) : !report ? (
           <div className="flex flex-col items-center justify-center py-12 px-4">
-            <FileText className="w-12 h-12 text-gray-500 mb-3" />
-            <p className="text-sm text-gray-400 text-center mb-4">
+            <FileText className="w-12 h-12 mb-3" style={{ color: 'var(--text-tertiary)' }} />
+            <p className="text-sm text-center mb-4" style={{ color: 'var(--text-secondary)' }}>
               No report available yet
             </p>
             <button
               onClick={() => generateMutation.mutate({ teamName, mapName })}
               disabled={generateMutation.isPending}
-              className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg text-sm transition-colors"
+              className="btn-c9 px-4 py-2 text-sm"
             >
               Generate Report
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-white/5">
+          <div>
             {sections.map(section => (
               <ReportSection
                 key={section.id}
@@ -162,8 +160,8 @@ export function ScoutingReportPanel({
 
       {/* Footer */}
       {report && (
-        <div className="px-4 py-2 border-t border-white/10 bg-white/5">
-          <p className="text-xs text-gray-500">
+        <div className="px-4 py-2" style={{ borderTop: '1px solid var(--border-default)', background: 'var(--bg-elevated)' }}>
+          <p className="text-xs" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-share-tech-mono)' }}>
             Generated: {new Date(report.generated_at).toLocaleString()}
           </p>
         </div>
@@ -191,19 +189,20 @@ function ReportSection({
   if (!content) return null;
 
   return (
-    <div>
+    <div style={{ borderBottom: '1px solid var(--border-subtle)' }}>
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition-colors"
+        className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:opacity-80"
+        style={{ background: isExpanded ? 'var(--bg-elevated)' : 'transparent' }}
       >
-        <Icon className="w-4 h-4 text-gray-400" />
-        <span className="flex-1 text-sm font-medium text-white text-left">
+        <Icon className="w-4 h-4" style={{ color: 'var(--neon-yellow)' }} />
+        <span className="flex-1 text-sm font-semibold text-left uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-primary)' }}>
           {title}
         </span>
         {isExpanded ? (
-          <ChevronDown className="w-4 h-4 text-gray-400" />
+          <ChevronDown className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
         ) : (
-          <ChevronRight className="w-4 h-4 text-gray-400" />
+          <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
         )}
       </button>
 
@@ -217,9 +216,7 @@ function ReportSection({
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 pl-11">
-              <div className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
-                {content}
-              </div>
+              <Markdown>{content}</Markdown>
             </div>
           </motion.div>
         )}

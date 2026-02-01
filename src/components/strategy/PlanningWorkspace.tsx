@@ -140,31 +140,45 @@ export function PlanningWorkspace() {
   const mapData = MAP_DATA[round.map_name.toLowerCase()];
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950">
+    <div className="flex flex-col h-screen" style={{ background: 'var(--bg-abyss)' }}>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-black/40">
+      <div className="flex items-center justify-between px-5 py-3" style={{
+        background: 'var(--bg-primary)',
+        borderBottom: '1px solid var(--border-default)',
+      }}>
         <button
           onClick={reset}
-          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-sm transition-colors"
+          style={{ color: 'var(--text-secondary)' }}
         >
           <ArrowLeft className="w-4 h-4" />
           Back
         </button>
-        <div className="text-sm font-semibold uppercase tracking-wider text-gray-300">
+        <div className="text-sm font-semibold uppercase tracking-wider" style={{
+          color: 'var(--text-primary)',
+          fontFamily: 'var(--font-rajdhani)',
+        }}>
           Tactical Planner
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={toggleGhosts}
-            className={`text-xs px-2.5 py-1 rounded transition-colors ${
-              showGhosts
-                ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                : 'bg-white/5 text-gray-500 border border-white/10'
-            }`}
+            className="text-xs px-2.5 py-1 transition-colors"
+            style={{
+              background: showGhosts ? 'rgba(185,103,255,0.15)' : 'var(--bg-elevated)',
+              border: `1px solid ${showGhosts ? 'var(--neon-purple)' : 'var(--border-default)'}`,
+              color: showGhosts ? 'var(--neon-purple)' : 'var(--text-tertiary)',
+              clipPath: 'var(--clip-corner-sm)',
+              fontFamily: 'var(--font-rajdhani)',
+              fontWeight: 600,
+            }}
           >
             Pro Paths {showGhosts ? 'ON' : 'OFF'}
           </button>
-          <span className="text-sm text-gray-500 capitalize">
+          <span className="text-sm capitalize" style={{
+            color: 'var(--text-tertiary)',
+            fontFamily: 'var(--font-rajdhani)',
+          }}>
             {round.map_name} ({round.user_side})
           </span>
         </div>
@@ -173,16 +187,25 @@ export function PlanningWorkspace() {
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: Phase Timeline */}
-        <div className="w-[180px] flex-shrink-0 border-r border-white/10 p-3 overflow-y-auto">
-          <div className="text-xs text-gray-500 uppercase tracking-wider mb-2 px-1">Phases</div>
+        <div className="w-[180px] flex-shrink-0 p-3 overflow-y-auto" style={{ borderRight: '1px solid var(--border-default)' }}>
+          <div className="text-xs uppercase tracking-wider mb-2 px-1" style={{
+            color: 'var(--text-tertiary)',
+            fontFamily: 'var(--font-rajdhani)',
+          }}>Phases</div>
           <PhaseTimeline />
         </div>
 
         {/* Center: Map */}
         <div ref={mapRef} className="flex-1 flex items-center justify-center p-4 min-w-0 overflow-hidden">
           <div
-            className="relative rounded-xl overflow-hidden bg-slate-900"
-            style={{ width: mapSize, height: mapSize, cursor: clickState === 'position' ? 'crosshair' : 'pointer' }}
+            className="relative overflow-hidden"
+            style={{
+              width: mapSize,
+              height: mapSize,
+              cursor: clickState === 'position' ? 'crosshair' : 'pointer',
+              background: 'var(--bg-primary)',
+              clipPath: 'var(--clip-corner)',
+            }}
             onClick={handleMapClick}
             onContextMenu={handleContextMenu}
           >
@@ -198,27 +221,31 @@ export function PlanningWorkspace() {
             {mapData && Object.entries(mapData.sites).map(([name, site]) => (
               <div
                 key={name}
-                className="absolute rounded-full border-2 border-yellow-500/30 flex items-center justify-center"
+                className="absolute flex items-center justify-center"
                 style={{
                   left: `${site.center[0] * 100}%`,
                   top: `${site.center[1] * 100}%`,
                   width: `${site.radius * 2 * 100}%`,
                   height: `${site.radius * 2 * 100}%`,
                   transform: 'translate(-50%, -50%)',
+                  border: '2px solid rgba(255,230,0,0.3)',
+                  borderRadius: '50%',
                 }}
               >
-                <span className="text-yellow-500/60 text-xs font-bold">{name}</span>
+                <span className="text-xs font-bold" style={{ color: 'rgba(255,230,0,0.6)' }}>{name}</span>
               </div>
             ))}
 
             {/* Pending position indicator */}
             {pendingPos && (
               <div
-                className="absolute w-4 h-4 rounded-full border-2 border-white animate-pulse pointer-events-none"
+                className="absolute w-4 h-4 animate-pulse pointer-events-none"
                 style={{
                   left: `${pendingPos.x * 100}%`,
                   top: `${pendingPos.y * 100}%`,
                   transform: 'translate(-50%, -50%)',
+                  border: '2px solid var(--text-primary)',
+                  clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
                 }}
               />
             )}
@@ -227,7 +254,10 @@ export function PlanningWorkspace() {
             <WaypointOverlay width={mapSize} height={mapSize} />
 
             {/* Click mode hint */}
-            <div className="absolute bottom-2 left-2 text-xs text-white/50 pointer-events-none">
+            <div className="absolute bottom-2 left-2 text-xs pointer-events-none" style={{
+              color: 'var(--text-tertiary)',
+              fontFamily: 'var(--font-share-tech-mono)',
+            }}>
               {clickState === 'position'
                 ? 'Click to place position'
                 : 'Click to set facing direction (right-click to cancel)'}
@@ -236,22 +266,31 @@ export function PlanningWorkspace() {
         </div>
 
         {/* Right: Player List */}
-        <div className="w-[200px] flex-shrink-0 border-l border-white/10 p-3 overflow-y-auto">
-          <div className="text-xs text-gray-500 uppercase tracking-wider mb-2 px-1">Players</div>
+        <div className="w-[200px] flex-shrink-0 p-3 overflow-y-auto" style={{ borderLeft: '1px solid var(--border-default)' }}>
+          <div className="text-xs uppercase tracking-wider mb-2 px-1" style={{
+            color: 'var(--text-tertiary)',
+            fontFamily: 'var(--font-rajdhani)',
+          }}>Players</div>
           <PlayerPlanList />
         </div>
       </div>
 
       {/* Bottom bar */}
-      <div className="flex items-center justify-between px-5 py-3 border-t border-white/10 bg-black/40">
-        <div className="text-sm text-gray-400">
+      <div className="flex items-center justify-between px-5 py-3" style={{
+        background: 'var(--bg-primary)',
+        borderTop: '1px solid var(--border-default)',
+      }}>
+        <div className="text-sm" style={{
+          color: 'var(--text-secondary)',
+          fontFamily: 'var(--font-rajdhani)',
+        }}>
           Phase {currentPhaseIdx + 1}/4: {PHASE_LABELS[currentPhase]}
         </div>
         <div className="flex items-center gap-3">
           {currentPhaseIdx < PHASES.length - 1 && (
             <button
               onClick={nextPhase}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-gray-300 hover:text-white transition-colors"
+              className="btn-tactical flex items-center gap-1.5 px-4 py-2 text-sm"
             >
               Next Phase
               <ChevronRight className="w-4 h-4" />
@@ -260,7 +299,7 @@ export function PlanningWorkspace() {
           <button
             onClick={handleExecute}
             disabled={isLoading}
-            className="flex items-center gap-2 px-6 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-medium transition-all disabled:opacity-50"
+            className="btn-c9 flex items-center gap-2 px-6 py-2 font-medium disabled:opacity-50"
           >
             {isLoading ? (
               <>
@@ -275,7 +314,7 @@ export function PlanningWorkspace() {
             )}
           </button>
         </div>
-        {error && <div className="text-red-400 text-xs">{error}</div>}
+        {error && <div className="text-xs" style={{ color: 'var(--val-red)' }}>{error}</div>}
       </div>
     </div>
   );

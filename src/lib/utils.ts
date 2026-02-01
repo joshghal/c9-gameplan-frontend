@@ -64,14 +64,14 @@ export const AGENT_COLORS: Record<string, string> = {
 
 export const TEAM_COLORS = {
   attack: {
-    primary: '#ef4444',
-    secondary: '#fca5a5',
-    bg: 'rgba(239, 68, 68, 0.2)',
+    primary: '#ff4654',
+    secondary: '#ff8a93',
+    bg: 'rgba(255, 70, 84, 0.15)',
   },
   defense: {
-    primary: '#3b82f6',
-    secondary: '#93c5fd',
-    bg: 'rgba(59, 130, 246, 0.2)',
+    primary: '#12d4b4',
+    secondary: '#5ee8d0',
+    bg: 'rgba(18, 212, 180, 0.15)',
   },
 };
 

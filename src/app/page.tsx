@@ -1,110 +1,305 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import Loader from '@/components/Loader';
 import { motion, AnimatePresence } from 'framer-motion';
-import gsap from 'gsap';
-import { Zap, Shield, Target, Brain, MessageSquare, FileText, ChevronRight, GitBranch, HelpCircle } from 'lucide-react';
+import { Play, Loader2 } from 'lucide-react';
+
+// Module-level flag — survives re-mounts, resets only on full page refresh
+let hasLoadedOnce = false;
+
+const MAP_WALLPAPERS = [
+  'ascent', 'bind', 'breeze', 'fracture', 'haven', 'icebox',
+  'lotus', 'pearl', 'split', 'sunset', 'abyss', 'corrode',
+];
 import {
   MapCanvas,
   SimulationControls,
   EventLog,
   ConfigPanel,
-  NarrationWalkthrough,
-  WhatIfPanel,
-  MonteCarloPanel,
+  CommandCenter,
 } from '@/components/simulation';
-import { ChatInterface, ScoutingReportPanel } from '@/components/coaching';
 import { useSimulationStore } from '@/store/simulation';
-import { useCameraStore } from '@/store/camera';
 
-export default function Home() {
-  const [activePanel, setActivePanel] = useState<'chat' | 'scout' | 'whatif' | null>(null);
-  const { defenseTeamId, status, snapshots, positions, events, spikePlanted, spikeSite, currentTime, togglePlayback, reset: resetSim, runToCompletion, setPlaybackSpeed } = useSimulationStore();
-  const { isTheaterMode } = useCameraStore();
-  const gridRef = useRef<HTMLDivElement>(null);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const [mapSize, setMapSize] = useState(800);
-  const [showShortcuts, setShowShortcuts] = useState(false);
+// ─── Film Grain SVG Filter (inline, no external file) ───
+function FilmGrain() {
+  return (
+    <svg className="film-grain" width="100%" height="100%">
+      <filter id="grain">
+        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+        <feColorMatrix type="saturate" values="0" />
+      </filter>
+      <rect width="100%" height="100%" filter="url(#grain)" />
+    </svg>
+  );
+}
 
-  const isCompleted = status === 'completed';
+// ─── IDLE STAGE: Mission Briefing ───
+function IdleStage() {
+  const { createSimulation, startSimulation, isLoading, mapName } = useSimulationStore();
+  const [bgIndex, setBgIndex] = useState(0);
 
-  // GSAP theater mode layout animation (gap #8)
+  // Rotate wallpapers every 6 seconds only when no map is selected
   useEffect(() => {
-    if (!gridRef.current) return;
-    if (isTheaterMode) {
-      gsap.to(gridRef.current, {
-        gridTemplateColumns: '1fr 0px',
-        duration: 0.6,
-        ease: 'power2.inOut',
-      });
-    } else {
-      gsap.to(gridRef.current, {
-        gridTemplateColumns: '1fr 400px',
-        duration: 0.6,
-        ease: 'power2.inOut',
-      });
-    }
-  }, [isTheaterMode]);
+    if (mapName) return; // Stop rotating when a map is selected
+    const interval = setInterval(() => {
+      setBgIndex((prev) => (prev + 1) % MAP_WALLPAPERS.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [mapName]);
+
+  const bgWallpaper = mapName
+    ? mapName.toLowerCase()
+    : MAP_WALLPAPERS[bgIndex];
+
+  const handleInitiate = async () => {
+    await createSimulation();
+    await startSimulation();
+  };
+
+  return (
+    <motion.div
+      key="idle"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.5 }}
+      className="relative min-h-[calc(100vh-57px)] flex items-center justify-center overflow-hidden"
+    >
+      {/* Background: selected map wallpaper or rotating gallery */}
+      <AnimatePresence mode="sync">
+        <motion.div
+          key={bgWallpaper}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1.5, ease: 'easeInOut' }}
+          className="absolute inset-0 z-0"
+        >
+          <img
+            src={`/maps/wallpapers/${bgWallpaper}.png`}
+            alt=""
+            className="w-full h-full object-cover"
+            style={{ filter: 'brightness(0.45) saturate(0.85)', transform: 'scale(1.05)' }}
+          />
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Atmospheric glow orbs — all C9 cyan */}
+      <div className="glow-orb glow-orb-cyan" style={{ width: '600px', height: '600px', top: '10%', left: '15%', opacity: 0.4 }} />
+      <div className="glow-orb glow-orb-cyan" style={{ width: '500px', height: '500px', bottom: '5%', right: '10%', opacity: 0.25 }} />
+      <div className="glow-orb glow-orb-cyan" style={{ width: '300px', height: '300px', top: '60%', left: '50%', opacity: 0.15 }} />
+
+      {/* Light leak */}
+      <div className="light-leak" />
+
+      {/* Vignette */}
+      <div className="absolute inset-0 z-10 pointer-events-none" style={{ boxShadow: 'inset 0 0 200px 60px rgba(0,0,0,0.6)' }} />
+
+      {/* Surface texture */}
+      <div className="absolute inset-0 surface-texture z-0" style={{ opacity: 0.6 }} />
+
+      {/* Center content */}
+      <div className="relative z-20 w-full max-w-[680px] mx-auto px-6 py-12">
+        {/* Title */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="text-center mb-8"
+        >
+          <h1 className="text-5xl font-bold uppercase tracking-widest text-gradient-c9 mb-2" style={{ fontFamily: 'var(--font-rajdhani)' }}>
+            Simulation
+          </h1>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-share-tech-mono)' }}>
+            Configure teams, map, and economy — simulate a full round using pro movement patterns, combat models, and positioning data derived from 590K+ VCT samples
+          </p>
+        </motion.div>
+
+        {/* Config card */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="frosted-glass-heavy p-1"
+          style={{ clipPath: 'var(--clip-corner)' }}
+        >
+          <ConfigPanel />
+        </motion.div>
+
+        {/* CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-6"
+        >
+          <button
+            onClick={handleInitiate}
+            disabled={isLoading}
+            className="btn-c9 w-full flex items-center justify-center gap-3 py-5 text-lg disabled:opacity-50"
+            style={{ fontSize: '1.1rem' }}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="w-6 h-6 animate-spin" />
+                Initializing...
+              </>
+            ) : (
+              <>
+                <Play className="w-6 h-6" />
+                Initiate Simulation
+              </>
+            )}
+          </button>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── RUNNING STAGE: Tactical Operations ───
+function RunningStage() {
+  const { togglePlayback, reset: resetSim, runToCompletion, setPlaybackSpeed, mapName } = useSimulationStore();
+  const [mapSize, setMapSize] = useState(800);
+
+  // Square map that fits viewport (maps are 1:1 aspect ratio)
+  useEffect(() => {
+    const update = () => {
+      const viewH = window.innerHeight - 57; // nav height
+      const viewW = window.innerWidth;
+      // Map is square; fit within viewport leaving room for bottom controls (~80px)
+      setMapSize(Math.min(viewW, viewH - 80));
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Ignore when typing in inputs
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       switch (e.key) {
-        case ' ':
-          e.preventDefault();
-          togglePlayback();
-          break;
-        case 'r':
-        case 'R':
-          resetSim();
-          break;
-        case 'f':
-        case 'F':
-          runToCompletion();
-          break;
-        case '1':
-          setPlaybackSpeed(0.5);
-          break;
-        case '2':
-          setPlaybackSpeed(1);
-          break;
-        case '3':
-          setPlaybackSpeed(2);
-          break;
-        case '4':
-          setPlaybackSpeed(4);
-          break;
+        case ' ': e.preventDefault(); togglePlayback(); break;
+        case 'r': case 'R': resetSim(); break;
+        case 'f': case 'F': runToCompletion(); break;
+        case '1': setPlaybackSpeed(0.5); break;
+        case '2': setPlaybackSpeed(1); break;
+        case '3': setPlaybackSpeed(2); break;
+        case '4': setPlaybackSpeed(4); break;
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [togglePlayback, resetSim, runToCompletion, setPlaybackSpeed]);
 
-  // Responsive map size
+  return (
+    <motion.div
+      key="running"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
+      className="relative"
+      style={{ height: 'calc(100vh - 57px)' }}
+    >
+      {/* Map wallpaper background */}
+      <img
+        src={`/maps/wallpapers/${mapName?.toLowerCase() || 'ascent'}.png`}
+        alt=""
+        className="absolute inset-0 w-full h-full object-cover z-0"
+        style={{ filter: 'brightness(0.2) saturate(0.6)' }}
+      />
+
+      {/* Atmospheric glow orbs */}
+      <div className="absolute inset-0 pointer-events-none z-[1]">
+        <div className="glow-orb glow-orb-cyan" style={{ width: '700px', height: '700px', top: '10%', left: '20%', opacity: 0.25 }} />
+        <div className="glow-orb glow-orb-cyan" style={{ width: '500px', height: '500px', bottom: '10%', right: '15%', opacity: 0.2 }} />
+      </div>
+
+      {/* Vignette */}
+      <div className="absolute inset-0 z-[2] pointer-events-none" style={{ boxShadow: 'inset 0 0 200px 60px rgba(0,0,0,0.5)' }} />
+
+      {/* Surface texture */}
+      <div className="absolute inset-0 surface-texture z-[2] pointer-events-none" style={{ opacity: 0.4 }} />
+
+      {/* Centered square map */}
+      <div className="absolute inset-0 z-[5] flex items-center justify-center">
+        <MapCanvas width={mapSize} height={mapSize} />
+      </div>
+
+      {/* Ambient edge glow */}
+      <div className="absolute inset-0 edge-glow edge-glow-cyan z-10 pointer-events-none" />
+
+      {/* Compact kill-feed (right edge, below MapCanvas internal HUD) */}
+      <motion.div
+        initial={{ x: 300, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
+        className="absolute top-16 right-4 w-72 z-[20]"
+      >
+        <EventLog variant="compact" />
+      </motion.div>
+
+      {/* Bottom controls overlay */}
+      <motion.div
+        initial={{ y: 80, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.2, duration: 0.4 }}
+        className="absolute bottom-0 left-0 right-0 z-30"
+      >
+        <SimulationControls variant="overlay" />
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── COMPLETED STAGE: After Action Report ───
+function CompletedStage() {
+  const {
+    positions, events, spikePlanted, spikeSite, currentTime, snapshots,
+    mapName, togglePlayback, reset: resetSim, setPlaybackSpeed,
+  } = useSimulationStore();
+  const [mapSize, setMapSize] = useState(600);
+
+  const attackAlive = positions.filter((p) => p.side === 'attack' && p.is_alive).length;
+  const defenseAlive = positions.filter((p) => p.side === 'defense' && p.is_alive).length;
+  const attackWon = attackAlive > 0 || spikePlanted;
+
+  // Responsive map
   useEffect(() => {
-    if (!mapContainerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = entry.contentRect.width;
-        setMapSize(Math.min(w, 800));
-      }
-    });
-    observer.observe(mapContainerRef.current);
-    return () => observer.disconnect();
+    const update = () => {
+      const available = (window.innerHeight - 57) * 0.6;
+      const w = window.innerWidth * 0.55;
+      setMapSize(Math.min(w, available, 800));
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, []);
 
-  // Build final state for narration
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      switch (e.key) {
+        case ' ': e.preventDefault(); togglePlayback(); break;
+        case 'r': case 'R': resetSim(); break;
+        case '1': setPlaybackSpeed(0.5); break;
+        case '2': setPlaybackSpeed(1); break;
+        case '3': setPlaybackSpeed(2); break;
+        case '4': setPlaybackSpeed(4); break;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [togglePlayback, resetSim, setPlaybackSpeed]);
+
   const finalState = {
-    positions: positions.map(p => ({
-      player_id: p.player_id,
-      side: p.side,
-      is_alive: p.is_alive,
-      agent: p.agent,
-    })),
-    attack_alive: positions.filter(p => p.side === 'attack' && p.is_alive).length,
-    defense_alive: positions.filter(p => p.side === 'defense' && p.is_alive).length,
+    positions: positions.map(p => ({ player_id: p.player_id, name: p.name, side: p.side, is_alive: p.is_alive, agent: p.agent, team_id: p.team_id })),
+    attack_alive: attackAlive,
+    defense_alive: defenseAlive,
     spike_planted: spikePlanted,
     spike_site: spikeSite,
     duration_ms: currentTime,
@@ -112,340 +307,122 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      {/* Background Effects */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        {/* Grid pattern */}
-        <div
-          className="absolute inset-0 opacity-[0.02]"
-          style={{
-            backgroundImage: `
-              linear-gradient(to right, white 1px, transparent 1px),
-              linear-gradient(to bottom, white 1px, transparent 1px)
-            `,
-            backgroundSize: '60px 60px',
-          }}
+    <motion.div
+      key="completed"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.4 }}
+      className="relative flex"
+      style={{ height: 'calc(100vh - 57px)' }}
+    >
+      {/* Left: Map + Controls */}
+      <div className="flex-1 flex flex-col relative min-w-0 overflow-hidden">
+        {/* Map wallpaper background */}
+        <img
+          src={`/maps/wallpapers/${mapName?.toLowerCase() || 'ascent'}.png`}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover z-0"
+          style={{ filter: 'brightness(0.25) saturate(0.7)' }}
         />
+        {/* Atmospheric glow orbs */}
+        <div className="absolute inset-0 pointer-events-none z-[1]">
+          <div className="glow-orb glow-orb-cyan" style={{ width: '600px', height: '600px', top: '15%', left: '25%', opacity: 0.3 }} />
+          <div className="glow-orb glow-orb-cyan" style={{ width: '400px', height: '400px', bottom: '15%', right: '10%', opacity: 0.2 }} />
+        </div>
+        {/* Light leak */}
+        <div className="light-leak" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '250px', zIndex: 1 }} />
+        {/* Vignette */}
+        <div className="absolute inset-0 z-[2] pointer-events-none" style={{ boxShadow: 'inset 0 0 200px 60px rgba(0,0,0,0.5)' }} />
+        {/* Surface texture */}
+        <div className="absolute inset-0 surface-texture z-[2] pointer-events-none" style={{ opacity: 0.4 }} />
 
-        {/* Gradient orbs */}
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-[120px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-[150px]" />
+        {/* Fixed map (does not scroll) */}
+        <div className="relative z-10 flex-shrink-0 flex justify-center pt-4 px-5">
+          <MapCanvas width={mapSize} height={mapSize} />
+        </div>
+
+        {/* Scrollable controls below map */}
+        <div className="relative z-10 flex-1 min-h-0 overflow-y-auto custom-scrollbar px-5 py-4 flex justify-center">
+          <div className="w-full" style={{ maxWidth: mapSize }}>
+            <SimulationControls />
+          </div>
+        </div>
       </div>
 
-      {/* Header */}
-      <header className="relative z-10 border-b border-white/5 backdrop-blur-xl bg-black/20">
-        <div className="max-w-[1800px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-3"
-            >
-              <div className="relative">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                  <Target className="w-7 h-7 text-white" />
-                </div>
-                <div className="absolute -inset-1 bg-gradient-to-br from-blue-500/50 to-cyan-500/50 rounded-xl blur-lg -z-10" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">
-                  C9 Tactical Vision
-                </h1>
-                <p className="text-xs text-gray-400">
-                  VALORANT Battle Simulator
-                </p>
-              </div>
-            </motion.div>
+      {/* Right: AAR Panel */}
+      <motion.div
+        initial={{ x: 480, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="w-[440px] flex-shrink-0 overflow-y-auto relative"
+        style={{
+          borderLeft: '1px solid var(--border-default)',
+          background: 'rgba(6,8,13,0.92)',
+          backdropFilter: 'blur(20px) saturate(1.2)',
+          WebkitBackdropFilter: 'blur(20px) saturate(1.2)',
+        }}
+      >
+        {/* C9 light leak at top */}
+        <div className="light-leak" style={{ height: '300px', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 0 }} />
 
-            {/* Feature Pills */}
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="hidden md:flex items-center gap-3"
-            >
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20">
-                <Brain className="w-4 h-4 text-purple-400" />
-                <span className="text-sm text-gray-300">AI-Powered</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20">
-                <Zap className="w-4 h-4 text-yellow-400" />
-                <span className="text-sm text-gray-300">Real-time</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20">
-                <Shield className="w-4 h-4 text-blue-400" />
-                <span className="text-sm text-gray-300">Pro Analysis</span>
-              </div>
-            </motion.div>
-
-            {/* Cloud9 Badge + Shortcuts */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-3"
-            >
-              {/* Keyboard shortcuts button */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowShortcuts(!showShortcuts)}
-                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
-                  title="Keyboard shortcuts"
-                >
-                  <HelpCircle className="w-4 h-4" />
-                </button>
-                {showShortcuts && (
-                  <div className="absolute right-0 top-10 bg-black/90 backdrop-blur-sm border border-white/10 rounded-xl p-4 z-50 w-56">
-                    <div className="text-sm font-semibold text-white mb-2">Keyboard Shortcuts</div>
-                    <div className="space-y-1.5 text-xs text-gray-400">
-                      <div className="flex justify-between"><span>Play / Pause</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">Space</kbd></div>
-                      <div className="flex justify-between"><span>Reset</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">R</kbd></div>
-                      <div className="flex justify-between"><span>Fast Forward</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">F</kbd></div>
-                      <div className="flex justify-between"><span>Speed 0.5x</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">1</kbd></div>
-                      <div className="flex justify-between"><span>Speed 1x</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">2</kbd></div>
-                      <div className="flex justify-between"><span>Speed 2x</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">3</kbd></div>
-                      <div className="flex justify-between"><span>Speed 4x</span><kbd className="bg-white/10 px-1.5 py-0.5 rounded text-gray-300">4</kbd></div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-2"
-            >
-              <div className="text-right">
-                <div className="text-sm font-medium text-white">Cloud9</div>
-                <div className="text-xs text-gray-500">Hackathon 2026</div>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center font-bold text-blue-400">
-                C9
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="relative z-10 max-w-[1800px] mx-auto px-6 py-8">
-        <div
-          ref={gridRef}
-          className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-6"
-        >
-          {/* Left Column - Map and Controls */}
-          <div className="space-y-6">
-            {/* Map Canvas with Overlay Controls */}
-            <motion.div
-              ref={mapContainerRef}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.1 }}
-              className="relative aspect-square w-full max-w-[800px]"
-            >
-              <MapCanvas width={mapSize} height={mapSize} />
-            </motion.div>
-
-            {/* Simulation Controls */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <SimulationControls />
-            </motion.div>
-
-            {/* Post-Simulation: AI Analysis */}
-            <AnimatePresence>
-              {isCompleted && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  className="space-y-4"
-                >
-                  {/* AI Narration Walkthrough */}
-                  <NarrationWalkthrough
-                    snapshots={snapshots}
-                    finalState={finalState}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-          </div>
-
-          {/* Right Column - Config, Events, and AI (collapses in theater mode) */}
-          <div className={`space-y-6 overflow-hidden ${isTheaterMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-               style={{ transition: 'opacity 0.4s ease' }}>
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <ConfigPanel />
-            </motion.div>
-
-            {/* AI Panel Tabs — 3 tabs: Coach Vision, Scout Report, What If */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.35 }}
-              className="flex gap-2"
-            >
-              <button
-                onClick={() => setActivePanel(activePanel === 'chat' ? null : 'chat')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${
-                  activePanel === 'chat'
-                    ? 'bg-purple-500/20 border-purple-500/50 text-purple-400'
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20'
-                }`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span className="text-sm font-medium">Coach</span>
-                <ChevronRight className={`w-4 h-4 transition-transform ${activePanel === 'chat' ? 'rotate-90' : ''}`} />
-              </button>
-              <button
-                onClick={() => setActivePanel(activePanel === 'scout' ? null : 'scout')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${
-                  activePanel === 'scout'
-                    ? 'bg-orange-500/20 border-orange-500/50 text-orange-400'
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20'
-                }`}
-              >
-                <FileText className="w-4 h-4" />
-                <span className="text-sm font-medium">{activePanel === 'scout' ? `Scout: ${defenseTeamId || 'g2'}` : 'Scout'}</span>
-                <ChevronRight className={`w-4 h-4 transition-transform ${activePanel === 'scout' ? 'rotate-90' : ''}`} />
-              </button>
-              <button
-                onClick={() => setActivePanel(activePanel === 'whatif' ? null : 'whatif')}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${
-                  activePanel === 'whatif'
-                    ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20'
-                }`}
-              >
-                <GitBranch className="w-4 h-4" />
-                <span className="text-sm font-medium">What If</span>
-                <ChevronRight className={`w-4 h-4 transition-transform ${activePanel === 'whatif' ? 'rotate-90' : ''}`} />
-              </button>
-            </motion.div>
-
-            {/* AI tab hint */}
-            {activePanel === null && (
-              <p className="text-xs text-gray-500 italic px-1">
-                Open Coach to chat with AI, Scout for opponent reports, or What If to test alternate scenarios
-              </p>
-            )}
-
-            {/* AI Panels */}
-            <AnimatePresence mode="wait">
-              {activePanel === 'chat' && (
-                <motion.div
-                  key="chat"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <ChatInterface />
-                </motion.div>
-              )}
-              {activePanel === 'scout' && (
-                <motion.div
-                  key="scout"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <ScoutingReportPanel teamName={defenseTeamId || 'g2'} />
-                </motion.div>
-              )}
-              {activePanel === 'whatif' && (
-                <motion.div
-                  key="whatif"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <WhatIfPanel snapshots={snapshots} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Monte Carlo Panel - shows after simulation completes */}
-            <AnimatePresence>
-              {isCompleted && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  <MonteCarloPanel />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              <EventLog />
-            </motion.div>
-
-            {/* Quick Tips */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 }}
-              className="bg-black/40 backdrop-blur-xl rounded-2xl p-6 border border-white/10"
-            >
-              <h3 className="text-lg font-semibold text-white mb-4">
-                How It Works
-              </h3>
-              <div className="space-y-3 text-sm text-gray-400">
-                <p>
-                  <span className="text-blue-400 font-medium">1.</span> Select
-                  teams and map configuration
-                </p>
-                <p>
-                  <span className="text-blue-400 font-medium">2.</span> Run the simulation and observe tactical play
-                </p>
-                <p>
-                  <span className="text-blue-400 font-medium">3.</span> Use Fast Forward to complete instantly with auto-snapshots
-                </p>
-                <p>
-                  <span className="text-blue-400 font-medium">4.</span> Watch AI Analysis for cinematic tactical narration
-                </p>
-                <p>
-                  <span className="text-blue-400 font-medium">5.</span> Run What-If scenarios and Monte Carlo analysis
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/5 mt-12">
-        <div className="max-w-[1800px] mx-auto px-6 py-6">
-          <div className="flex items-center justify-between text-sm text-gray-500">
-            <div>
-              Built for Cloud9 x JetBrains Hackathon 2026
+        <div className="relative z-10 p-5 space-y-5">
+          {/* Victory/Defeat Banner */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3 }}
+            className="p-5 text-center"
+            style={{
+              background: 'rgba(0,174,239,0.06)',
+              border: '1px solid rgba(0,174,239,0.2)',
+              clipPath: 'var(--clip-corner)',
+            }}
+          >
+            <div className="text-3xl font-bold uppercase tracking-widest" style={{
+              fontFamily: 'var(--font-rajdhani)',
+              color: 'var(--c9-cyan)',
+            }}>
+              {attackWon ? 'Attack Wins' : 'Defense Wins'}
             </div>
-            <div className="flex items-center gap-4">
-              <span>Powered by GRID API</span>
-              <span>•</span>
-              <span>Movement AI</span>
+            <div className="text-sm mt-2 data-readout" style={{ color: 'var(--text-secondary)' }}>
+              {attackAlive} ATK vs {defenseAlive} DEF &middot; {Math.round(currentTime / 1000)}s
             </div>
-          </div>
+          </motion.div>
+
+          {/* Command Center — unified AI coaching experience */}
+          <CommandCenter snapshots={snapshots} finalState={finalState} />
+
+          {/* Full Event Log */}
+          <EventLog variant="full" />
         </div>
-      </footer>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ─── MAIN PAGE ───
+export default function Home() {
+  const { status } = useSimulationStore();
+  const [isLoaderComplete, setIsLoaderComplete] = useState(hasLoadedOnce);
+
+  const stage = status === 'idle' ? 'idle'
+    : status === 'completed' ? 'completed'
+    : 'running';
+
+  return (
+    <div className="relative" style={{ background: 'var(--bg-abyss)' }}>
+      {!hasLoadedOnce && (
+        <Loader onLoadingComplete={() => { hasLoadedOnce = true; setIsLoaderComplete(true); }} />
+      )}
+      <FilmGrain />
+      {isLoaderComplete && (
+        <AnimatePresence mode="wait">
+          {stage === 'idle' && <IdleStage />}
+          {stage === 'running' && <RunningStage />}
+          {stage === 'completed' && <CompletedStage />}
+        </AnimatePresence>
+      )}
     </div>
   );
 }

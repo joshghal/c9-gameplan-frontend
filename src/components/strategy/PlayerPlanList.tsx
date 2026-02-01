@@ -2,7 +2,7 @@
 
 import { useStrategyStore, PHASES } from '@/store/strategy';
 
-const PLAYER_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7'];
+const PLAYER_COLORS = ['#ff4654', '#ffe600', '#12d4b4', '#00AEEF', '#b967ff'];
 
 export function PlayerPlanList() {
   const { round, selectedPlayerId, setSelectedPlayerId, waypoints, currentPhase, removeLastWaypoint, adoptGhostPath, adoptAllGhostPaths } = useStrategyStore();
@@ -23,31 +23,42 @@ export function PlayerPlanList() {
           <button
             key={t.player_id}
             onClick={() => setSelectedPlayerId(t.player_id)}
-            className={`w-full text-left px-3 py-2.5 rounded-lg transition-all text-sm ${
-              isSelected
-                ? 'bg-white/10 border border-white/20'
-                : 'hover:bg-white/5 border border-transparent'
-            }`}
+            className="w-full text-left px-3 py-2.5 transition-all text-sm"
+            style={{
+              background: isSelected ? 'var(--bg-elevated)' : 'transparent',
+              border: `1px solid ${isSelected ? PLAYER_COLORS[i] : 'transparent'}`,
+              clipPath: 'var(--clip-corner-sm)',
+            }}
           >
             <div className="flex items-center gap-2">
               <div
-                className="w-3 h-3 rounded-full flex-shrink-0"
-                style={{ backgroundColor: PLAYER_COLORS[i] }}
+                className="w-3 h-3 flex-shrink-0"
+                style={{
+                  backgroundColor: PLAYER_COLORS[i],
+                  clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+                }}
               />
               <div className="min-w-0 flex-1">
-                <div className={`font-medium truncate ${isSelected ? 'text-white' : 'text-gray-300'}`}>
+                <div className="font-medium truncate" style={{
+                  color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  fontFamily: 'var(--font-rajdhani)',
+                }}>
                   {t.name}
                 </div>
-                <div className="text-xs text-gray-500 capitalize">
+                <div className="text-xs capitalize" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-rajdhani)' }}>
                   {t.agent} · {t.role}
                 </div>
               </div>
-              <div className="text-xs text-gray-500 flex-shrink-0">
+              <div className="text-xs flex-shrink-0">
                 {phaseWps.length > 0 && (
-                  <span className="text-white bg-white/10 px-1.5 py-0.5 rounded">{phaseWps.length}</span>
+                  <span className="px-1.5 py-0.5 data-readout" style={{
+                    background: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    clipPath: 'var(--clip-corner-sm)',
+                  }}>{phaseWps.length}</span>
                 )}
                 {totalWps > 0 && phaseWps.length === 0 && (
-                  <span className="text-gray-500">{totalWps}</span>
+                  <span className="data-readout" style={{ color: 'var(--text-tertiary)' }}>{totalWps}</span>
                 )}
               </div>
             </div>
@@ -58,14 +69,25 @@ export function PlayerPlanList() {
       {/* Adopt Pro Paths */}
       <button
         onClick={adoptAllGhostPaths}
-        className="w-full mt-2 py-2 text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-lg transition-colors border border-purple-500/20"
+        className="w-full mt-2 py-2 text-xs transition-all"
+        style={{
+          color: 'var(--neon-purple)',
+          border: '1px solid rgba(185,103,255,0.2)',
+          clipPath: 'var(--clip-corner-sm)',
+          fontFamily: 'var(--font-rajdhani)',
+          fontWeight: 600,
+        }}
       >
         Adopt All Pro Paths
       </button>
       {selectedPlayerId && (
         <button
           onClick={() => adoptGhostPath(selectedPlayerId)}
-          className="w-full mt-1 py-2 text-xs text-purple-400/60 hover:text-purple-300 hover:bg-purple-500/10 rounded-lg transition-colors"
+          className="w-full mt-1 py-2 text-xs transition-all"
+          style={{
+            color: 'rgba(185,103,255,0.6)',
+            fontFamily: 'var(--font-rajdhani)',
+          }}
         >
           Adopt Pro Path (selected)
         </button>
@@ -75,7 +97,11 @@ export function PlayerPlanList() {
       {selectedPlayerId && (waypoints[currentPhase]?.[selectedPlayerId]?.length ?? 0) > 0 && (
         <button
           onClick={() => removeLastWaypoint(currentPhase, selectedPlayerId)}
-          className="w-full mt-1 py-2 text-xs text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+          className="w-full mt-1 py-2 text-xs transition-all"
+          style={{
+            color: 'var(--text-secondary)',
+            fontFamily: 'var(--font-rajdhani)',
+          }}
         >
           Undo Last Waypoint
         </button>

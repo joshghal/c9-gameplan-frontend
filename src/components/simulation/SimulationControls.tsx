@@ -10,6 +10,7 @@ import {
   SkipForward,
   Zap,
   Brain,
+  Loader2,
 } from 'lucide-react';
 import { useSimulationStore } from '@/store/simulation';
 import { useCameraStore } from '@/store/camera';
@@ -17,7 +18,11 @@ import { coachingApi } from '@/lib/api';
 import { formatTime, TEAM_COLORS, PHASE_NAMES } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
-export function SimulationControls() {
+interface SimulationControlsProps {
+  variant?: 'default' | 'overlay';
+}
+
+export function SimulationControls({ variant = 'default' }: SimulationControlsProps) {
   const {
     status,
     currentTime,
@@ -111,6 +116,17 @@ export function SimulationControls() {
   const attackAlive = positions.filter((p) => p.side === 'attack' && p.is_alive).length;
   const defenseAlive = positions.filter((p) => p.side === 'defense' && p.is_alive).length;
 
+  // Replace player IDs (e.g. "g2_5", "c9_2") with actual names in narration text
+  const resolveNames = useCallback((text: string): string => {
+    let resolved = text;
+    for (const p of positions) {
+      if (p.name && p.player_id) {
+        resolved = resolved.replaceAll(p.player_id, p.name);
+      }
+    }
+    return resolved;
+  }, [positions]);
+
   const handleStart = async () => {
     if (status === 'idle') {
       await createSimulation();
@@ -120,273 +136,419 @@ export function SimulationControls() {
     }
   };
 
+  // ─── OVERLAY VARIANT (running stage bottom bar) ───
+  if (variant === 'overlay') {
+    return (
+      <div className="relative frosted-glass px-6 py-3" style={{ clipPath: 'none' }}>
+        <div className="flex items-center justify-between gap-6 max-w-[1200px] mx-auto">
+          {/* Timer */}
+          <div className="flex items-center gap-3">
+            <span className="data-readout text-lg text-glow-cyan">{formatTime(currentTime)}</span>
+            <span className="text-xs uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-tertiary)' }}>
+              {PHASE_NAMES[phase] ?? phase.replaceAll('_', ' ')}
+            </span>
+          </div>
+
+          {/* Team pips */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs uppercase" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--val-red)' }}>ATK</span>
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="w-5 h-1" style={{
+                  background: i < attackAlive ? 'var(--val-red)' : 'var(--bg-elevated)',
+                  clipPath: 'var(--clip-corner-sm)',
+                  boxShadow: i < attackAlive ? '0 0 6px rgba(255,70,84,0.4)' : 'none',
+                }} />
+              ))}
+              <span className="data-readout text-sm ml-1" style={{ color: 'var(--val-red)' }}>{attackAlive}</span>
+            </div>
+            <span style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-rajdhani)' }}>VS</span>
+            <div className="flex items-center gap-1.5">
+              <span className="data-readout text-sm mr-1" style={{ color: 'var(--val-teal)' }}>{defenseAlive}</span>
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="w-5 h-1" style={{
+                  background: i < defenseAlive ? 'var(--val-teal)' : 'var(--bg-elevated)',
+                  clipPath: 'var(--clip-corner-sm)',
+                  boxShadow: i < defenseAlive ? '0 0 6px rgba(18,212,180,0.4)' : 'none',
+                }} />
+              ))}
+              <span className="text-xs uppercase" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--val-teal)' }}>DEF</span>
+            </div>
+          </div>
+
+          {/* Playback controls */}
+          <div className="flex items-center gap-2">
+            <button onClick={reset} className="btn-tactical p-2" title="Reset">
+              <RotateCcw className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+            </button>
+            <button
+              onClick={togglePlayback}
+              disabled={status === 'completed'}
+              className={cn('p-2.5 transition-all', isPlaying ? 'btn-tactical' : 'btn-c9', status === 'completed' && 'opacity-50')}
+            >
+              {isPlaying ? <Pause className="w-5 h-5" style={{ color: 'var(--c9-cyan)' }} /> : <Play className="w-5 h-5 text-black" />}
+            </button>
+            <button onClick={() => tickSimulation(10)} disabled={status !== 'running'} className="btn-tactical p-2 disabled:opacity-50" title="Skip">
+              <SkipForward className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+            </button>
+            <button onClick={runToCompletion} disabled={status !== 'running' || isLoading} className="btn-tactical p-2 disabled:opacity-50" title="Fast Forward">
+              <FastForward className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+            </button>
+          </div>
+
+          {/* Speed */}
+          <div className="flex items-center gap-1">
+            {[0.5, 1, 2, 4].map((speed) => (
+              <button
+                key={speed}
+                onClick={() => setPlaybackSpeed(speed)}
+                className={cn('px-2 py-0.5 text-xs transition-all', playbackSpeed === speed ? 'text-black' : 'btn-tactical')}
+                style={playbackSpeed === speed ? {
+                  background: 'var(--c9-cyan)',
+                  clipPath: 'var(--clip-corner-sm)',
+                  fontFamily: 'var(--font-jetbrains-mono)',
+                } : { fontFamily: 'var(--font-jetbrains-mono)' }}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+
+          {/* AI Commentary toggle */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-tertiary)' }}>AI Commentary</span>
+            <button
+              onClick={() => setAiCommentaryEnabled(!aiCommentaryEnabled)}
+              title="Pause at kills for AI tactical breakdown"
+              className="relative w-9 h-[18px] transition-colors"
+              style={{
+                background: aiCommentaryEnabled ? 'var(--c9-cyan)' : 'var(--bg-elevated)',
+                clipPath: 'var(--clip-corner-sm)',
+                border: `1px solid ${aiCommentaryEnabled ? 'var(--c9-cyan)' : 'var(--border-default)'}`,
+              }}
+            >
+              <div
+                className={cn(
+                  'absolute top-0.5 w-3.5 h-3 bg-white transition-transform',
+                  aiCommentaryEnabled ? 'translate-x-[18px]' : 'translate-x-0.5'
+                )}
+                style={{ clipPath: 'var(--clip-corner-sm)' }}
+              />
+            </button>
+          </div>
+
+          {/* Spike alert (inline) */}
+          {spikePlanted && (
+            <div className="flex items-center gap-2 px-3 py-1" style={{
+              background: 'rgba(255,70,84,0.15)',
+              border: '1px solid rgba(255,70,84,0.4)',
+              clipPath: 'var(--clip-corner-sm)',
+            }}>
+              <Zap className="w-4 h-4" style={{ color: 'var(--val-red)' }} />
+              <span className="text-xs font-bold uppercase" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--val-red)' }}>SPIKE</span>
+            </div>
+          )}
+        </div>
+
+        {/* Live narration overlay — loading or ready */}
+        <AnimatePresence>
+          {liveNarrationPaused && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-[480px] p-4"
+              style={{
+                clipPath: 'var(--clip-corner-sm)',
+                background: 'rgba(6,8,13,0.45)',
+                backdropFilter: 'blur(40px) saturate(1.4)',
+                WebkitBackdropFilter: 'blur(40px) saturate(1.4)',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <Brain className="w-4 h-4" style={{ color: 'var(--c9-cyan)' }} />
+                <span className="text-xs uppercase tracking-widest font-semibold" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--c9-cyan)' }}>AI Commentary</span>
+              </div>
+              {liveNarrationText ? (
+                <>
+                  <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text-primary)' }}>{resolveNames(liveNarrationText)}</p>
+                  <button
+                    onClick={continueLiveNarration}
+                    className="w-full py-2 text-sm font-medium flex items-center justify-center gap-2"
+                    style={{
+                      background: 'var(--c9-cyan)', color: '#000',
+                      clipPath: 'var(--clip-corner-sm)', fontFamily: 'var(--font-rajdhani)',
+                      fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
+                    }}
+                  >
+                    <Play className="w-4 h-4" /> Continue
+                  </button>
+                </>
+              ) : (
+                <div className="flex items-center gap-3 py-2">
+                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--c9-cyan)' }} />
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-share-tech-mono)' }}>Analyzing key moment...</span>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  // ─── DEFAULT VARIANT ───
   return (
-    <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+    <div className="hud-panel hud-panel-cyan p-5">
       {/* Timer and Phase */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <div className="text-sm text-gray-400 uppercase tracking-wider">Round Time</div>
-          <div className="text-4xl font-mono font-bold text-white">
+          <div className="text-xs uppercase tracking-widest mb-1" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-secondary)' }}>Round Time</div>
+          <div className="data-readout-lg text-glow-cyan">
             {formatTime(currentTime)}
           </div>
         </div>
 
         <div className="text-right">
-          <div className="text-sm text-gray-400 uppercase tracking-wider">Phase</div>
-          <div className="text-xl font-semibold text-white capitalize">
+          <div className="text-xs uppercase tracking-widest mb-1" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-secondary)' }}>Phase</div>
+          <div className="text-lg font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-primary)' }}>
             {PHASE_NAMES[phase] ?? phase.replaceAll('_', ' ')}
           </div>
         </div>
       </div>
 
-      {/* Team Stats */}
-      <div className="flex items-center justify-between mb-6 gap-4">
-        {/* Attack Team */}
-        <div
-          className="flex-1 rounded-xl p-4"
-          style={{ backgroundColor: TEAM_COLORS.attack.bg }}
-        >
-          <div className="text-sm text-red-400 uppercase tracking-wider mb-1">
-            Attack
+      {/* Team Stats — compact */}
+      <div className="flex items-center gap-3 mb-5">
+        {/* Attack */}
+        <div className="flex-1 p-2.5" style={{ backgroundColor: TEAM_COLORS.attack.bg, clipPath: 'var(--clip-corner-sm)' }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--val-red)' }}>ATK</span>
+            <span className="data-readout text-sm font-bold" style={{ color: 'var(--val-red)' }}>{attackAlive}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex gap-1 mt-1">
             {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className={cn(
-                  'w-3 h-3 rounded-full transition-all',
-                  i < attackAlive ? 'bg-red-500' : 'bg-gray-600'
-                )}
-              />
+              <div key={i} className="flex-1 h-1" style={{
+                background: i < attackAlive ? 'var(--val-red)' : 'var(--bg-elevated)',
+                clipPath: 'var(--clip-corner-sm)',
+                boxShadow: i < attackAlive ? '0 0 6px rgba(255,70,84,0.4)' : 'none',
+              }} />
             ))}
-            <span className="ml-2 text-2xl font-bold text-white">
-              {attackAlive}
-            </span>
           </div>
         </div>
 
-        {/* VS */}
-        <div className="text-2xl font-bold text-gray-500">VS</div>
+        <span className="text-xs font-bold" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-tertiary)' }}>VS</span>
 
-        {/* Defense Team */}
-        <div
-          className="flex-1 rounded-xl p-4"
-          style={{ backgroundColor: TEAM_COLORS.defense.bg }}
-        >
-          <div className="text-sm text-blue-400 uppercase tracking-wider mb-1">
-            Defense
+        {/* Defense */}
+        <div className="flex-1 p-2.5" style={{ backgroundColor: TEAM_COLORS.defense.bg, clipPath: 'var(--clip-corner-sm)' }}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--val-teal)' }}>DEF</span>
+            <span className="data-readout text-sm font-bold" style={{ color: 'var(--val-teal)' }}>{defenseAlive}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex gap-1 mt-1">
             {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className={cn(
-                  'w-3 h-3 rounded-full transition-all',
-                  i < defenseAlive ? 'bg-blue-500' : 'bg-gray-600'
-                )}
-              />
+              <div key={i} className="flex-1 h-1" style={{
+                background: i < defenseAlive ? 'var(--val-teal)' : 'var(--bg-elevated)',
+                clipPath: 'var(--clip-corner-sm)',
+                boxShadow: i < defenseAlive ? '0 0 6px rgba(18,212,180,0.4)' : 'none',
+              }} />
             ))}
-            <span className="ml-2 text-2xl font-bold text-white">
-              {defenseAlive}
-            </span>
           </div>
         </div>
       </div>
 
       {/* Spike Status */}
       {spikePlanted && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-3 bg-red-500/20 border border-red-500/50 rounded-xl flex items-center gap-3"
-        >
-          <motion.div
-            animate={{
-              scale: [1, 1.2, 1],
-            }}
-            transition={{ duration: 0.5, repeat: Infinity }}
-          >
-            <Zap className="w-6 h-6 text-red-500" />
-          </motion.div>
-          <div>
-            <div className="text-red-400 font-semibold">SPIKE PLANTED</div>
-            <div className="text-sm text-red-300/70">Defuse or eliminate attackers</div>
-          </div>
-        </motion.div>
+        <div className="mb-4 p-2.5 flex items-center gap-2" style={{
+          background: 'rgba(255,70,84,0.12)',
+          border: '1px solid rgba(255,70,84,0.4)',
+          clipPath: 'var(--clip-corner-sm)',
+        }}>
+          <Zap className="w-4 h-4" style={{ color: 'var(--val-red)' }} />
+          <span className="text-xs font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--val-red)' }}>SPIKE PLANTED</span>
+        </div>
       )}
 
-      {/* Playback Controls */}
-      <div className="flex items-center justify-center gap-4 mb-6">
+      {/* Playback Controls — or New Simulation button when completed */}
+      {status === 'completed' ? (
         <button
           onClick={reset}
-          className="p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
-          title="Reset"
+          className="btn-c9 w-full flex items-center justify-center gap-2 py-3 text-sm font-medium mb-4"
         >
-          <RotateCcw className="w-5 h-5 text-gray-400" />
+          <RotateCcw className="w-4 h-4" />
+          New Simulation
         </button>
+      ) : (
+        <>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <button onClick={reset} className="btn-tactical p-3" title="Reset">
+              <RotateCcw className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+            </button>
 
-        {status === 'idle' || status === 'created' ? (
-          <button
-            onClick={handleStart}
-            disabled={isLoading}
-            className="p-4 rounded-full bg-green-500 hover:bg-green-600 transition-colors disabled:opacity-50"
-          >
-            <Play className="w-8 h-8 text-white" />
-          </button>
-        ) : (
-          <button
-            onClick={togglePlayback}
-            disabled={status === 'completed'}
-            className={cn(
-              'p-4 rounded-full transition-colors',
-              isPlaying
-                ? 'bg-yellow-500 hover:bg-yellow-600'
-                : 'bg-green-500 hover:bg-green-600',
-              status === 'completed' && 'opacity-50 cursor-not-allowed'
-            )}
-          >
-            {isPlaying ? (
-              <Pause className="w-8 h-8 text-white" />
+            {status === 'idle' || status === 'created' ? (
+              <button onClick={handleStart} disabled={isLoading} className="btn-c9 p-4 disabled:opacity-50">
+                <Play className="w-8 h-8 text-black" />
+              </button>
             ) : (
-              <Play className="w-8 h-8 text-white" />
+              <button
+                onClick={togglePlayback}
+                className={cn('p-4 transition-all', isPlaying ? 'btn-tactical' : 'btn-c9')}
+              >
+                {isPlaying ? <Pause className="w-8 h-8" style={{ color: 'var(--c9-cyan-light)' }} /> : <Play className="w-8 h-8 text-black" />}
+              </button>
             )}
-          </button>
-        )}
 
-        <button
-          onClick={() => tickSimulation(10)}
-          disabled={status !== 'running'}
-          className="p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-50"
-          title="Skip 10 ticks"
-        >
-          <SkipForward className="w-5 h-5 text-gray-400" />
-        </button>
+            <button onClick={() => tickSimulation(10)} disabled={status !== 'running'} className="btn-tactical p-3 disabled:opacity-50" title="Skip 10 ticks">
+              <SkipForward className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+            </button>
+            <button onClick={runToCompletion} disabled={status !== 'running' || isLoading} className="btn-tactical p-3 disabled:opacity-50" title="Run to completion">
+              <FastForward className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+            </button>
+          </div>
 
-        <button
-          onClick={runToCompletion}
-          disabled={status !== 'running' || isLoading}
-          className="p-3 rounded-full bg-white/5 hover:bg-white/10 transition-colors disabled:opacity-50"
-          title="Run to completion"
-        >
-          <FastForward className="w-5 h-5 text-gray-400" />
-        </button>
-      </div>
-
-      {/* Speed Controls */}
-      <div className="flex items-center justify-center gap-2">
-        <span className="text-sm text-gray-400 mr-2">Playback Speed:</span>
-        {[0.5, 1, 2, 4].map((speed) => (
-          <button
-            key={speed}
-            onClick={() => setPlaybackSpeed(speed)}
-            title={`${speed}x playback speed`}
-            className={cn(
-              'px-3 py-1 rounded-lg text-sm font-medium transition-colors',
-              playbackSpeed === speed
-                ? 'bg-blue-500 text-white'
-                : 'bg-white/5 text-gray-400 hover:bg-white/10'
-            )}
-          >
-            {speed}x
-          </button>
-        ))}
-      </div>
+          {/* Speed Controls */}
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <span className="text-xs uppercase tracking-widest mr-2" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-secondary)' }}>Speed:</span>
+            {[0.5, 1, 2, 4].map((speed) => (
+              <button
+                key={speed}
+                onClick={() => setPlaybackSpeed(speed)}
+                className={cn('px-3 py-1 text-sm font-medium transition-all', playbackSpeed === speed ? 'text-black' : 'btn-tactical')}
+                style={playbackSpeed === speed ? { background: 'var(--c9-cyan)', clipPath: 'var(--clip-corner-sm)', fontFamily: 'var(--font-jetbrains-mono)' } : { fontFamily: 'var(--font-jetbrains-mono)' }}
+              >
+                {speed}x
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* AI Commentary Toggle */}
-      <div className="mt-4 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Brain className="w-4 h-4 text-purple-400" />
-          <span className="text-sm text-gray-400">Live AI Commentary</span>
+          <Brain className="w-4 h-4" style={{ color: 'var(--c9-cyan)' }} />
+          <span className="text-xs uppercase tracking-widest" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-secondary)' }}>Live AI Commentary</span>
         </div>
         <button
           onClick={() => setAiCommentaryEnabled(!aiCommentaryEnabled)}
           title="Pause at kills for AI analysis"
-          className={cn(
-            'relative w-10 h-5 rounded-full transition-colors',
-            aiCommentaryEnabled ? 'bg-purple-500' : 'bg-gray-600'
-          )}
+          className="relative w-10 h-5 transition-colors"
+          style={{
+            background: aiCommentaryEnabled ? 'var(--c9-cyan)' : 'var(--bg-elevated)',
+            clipPath: 'var(--clip-corner-sm)',
+            border: `1px solid ${aiCommentaryEnabled ? 'var(--c9-cyan)' : 'var(--border-default)'}`,
+          }}
         >
           <div
-            className={cn(
-              'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform',
-              aiCommentaryEnabled ? 'translate-x-5' : 'translate-x-0.5'
-            )}
+            className={cn('absolute top-0.5 w-4 h-4 bg-white transition-transform', aiCommentaryEnabled ? 'translate-x-5' : 'translate-x-0.5')}
+            style={{ clipPath: 'var(--clip-corner-sm)' }}
           />
         </button>
       </div>
-      <span className="text-xs text-gray-500">Pauses at kills for AI tactical breakdown</span>
+      <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Pauses at kills for AI tactical breakdown</span>
 
-      {/* Live Narration Card (Mode A: pause at key moments) */}
+      {/* Live Narration Card */}
       <AnimatePresence>
-        {liveNarrationPaused && liveNarrationText && (
+        {liveNarrationPaused && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="mt-4 p-4 bg-purple-500/15 border border-purple-500/30 rounded-xl"
+            className="mt-4 p-4"
+            style={{
+              background: 'rgba(0,174,239,0.08)',
+              border: '1px solid rgba(0,174,239,0.25)',
+              clipPath: 'var(--clip-corner-sm)',
+            }}
           >
             <div className="flex items-center gap-2 mb-2">
-              <Brain className="w-4 h-4 text-purple-400" />
-              <span className="text-xs text-purple-400 uppercase tracking-wider font-semibold">AI Commentary</span>
+              <Brain className="w-4 h-4" style={{ color: 'var(--c9-cyan)' }} />
+              <span className="text-xs uppercase tracking-widest font-semibold" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--c9-cyan)' }}>AI Commentary</span>
             </div>
-            <p className="text-sm text-gray-200 leading-relaxed mb-3">{liveNarrationText}</p>
-            <button
-              onClick={continueLiveNarration}
-              className="w-full py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
-            >
-              <Play className="w-4 h-4" />
-              Continue
-            </button>
+            {liveNarrationText ? (
+              <>
+                <p className="text-sm leading-relaxed mb-3" style={{ color: 'var(--text-primary)' }}>{resolveNames(liveNarrationText)}</p>
+                <button
+                  onClick={continueLiveNarration}
+                  className="w-full py-2 text-sm font-medium transition-all flex items-center justify-center gap-2"
+                  style={{
+                    background: 'var(--c9-cyan)', color: '#000',
+                    clipPath: 'var(--clip-corner-sm)', fontFamily: 'var(--font-rajdhani)',
+                    fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
+                  }}
+                >
+                  <Play className="w-4 h-4" />
+                  Continue
+                </button>
+              </>
+            ) : (
+              <div className="flex items-center gap-3 py-2">
+                <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--c9-cyan)' }} />
+                <span className="text-sm" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-share-tech-mono)' }}>Analyzing key moment...</span>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Snapshot Timeline */}
       {snapshots.length > 0 && (
-        <div className="mt-4">
-          <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Key Moments</div>
-          <div className="relative h-2 bg-white/10 rounded-full">
-            {snapshots.map((snap, i) => {
+        <div className="mt-5">
+          <div className="text-xs uppercase tracking-widest mb-2" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-secondary)' }}>Key Moments</div>
+          <div className="relative h-1.5" style={{ background: 'var(--bg-elevated)', clipPath: 'var(--clip-corner-sm)' }}>
+            {snapshots.map((snap: { id: string; time_ms: number; label?: string }, i: number) => {
               const pct = Math.min((snap.time_ms / 100000) * 100, 100);
               const isKill = snap.label?.startsWith('kill');
               const isPlant = snap.label?.startsWith('spike_plant');
               return (
                 <div
                   key={snap.id}
-                  className={cn(
-                    'absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border-2 border-black/50',
-                    isKill ? 'bg-red-500' : isPlant ? 'bg-yellow-400' : 'bg-gray-400'
-                  )}
-                  style={{ left: `${pct}%` }}
+                  className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5"
+                  style={{
+                    left: `${pct}%`,
+                    background: isKill ? 'var(--val-red)' : isPlant ? 'var(--val-red)' : 'var(--text-tertiary)',
+                    clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+                    boxShadow: isKill ? '0 0 6px rgba(255,70,84,0.5)' : isPlant ? '0 0 6px rgba(255,70,84,0.5)' : 'none',
+                  }}
                   title={snap.label || `${snap.time_ms}ms`}
                 />
               );
             })}
-            {/* Current time indicator */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-1 h-4 bg-white rounded-full"
-              style={{ left: `${Math.min((currentTime / 100000) * 100, 100)}%` }}
+              className="absolute top-1/2 -translate-y-1/2 w-0.5 h-4"
+              style={{
+                left: `${Math.min((currentTime / 100000) * 100, 100)}%`,
+                background: 'var(--c9-cyan)',
+                boxShadow: '0 0 6px var(--c9-cyan)',
+              }}
             />
           </div>
         </div>
       )}
 
-      {/* Status */}
+      {/* Result status */}
       {status === 'completed' && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="mt-6 p-4 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-xl text-center"
+          className="mt-5 p-3 text-center"
+          style={{
+            background: 'rgba(0,174,239,0.06)',
+            border: '1px solid rgba(0,174,239,0.2)',
+            clipPath: 'var(--clip-corner-sm)',
+          }}
         >
-          <div className="text-xl font-bold text-white">
-            {attackAlive > 0 && !spikePlanted
-              ? 'Time Expired - Defense Wins'
-              : attackAlive > 0
+          <div className="text-lg font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-primary)' }}>
+            {defenseAlive === 0
               ? 'Attack Wins'
-              : 'Defense Wins'}
+              : attackAlive === 0
+              ? 'Defense Wins'
+              : spikePlanted
+              ? 'Attack Wins — Spike Detonated'
+              : 'Time Expired — Defense Wins'}
           </div>
-          <div className="text-sm text-gray-400 mt-1">
-            Round completed in {formatTime(currentTime)}
+          <div className="text-xs mt-1 data-readout" style={{ color: 'var(--text-secondary)' }}>
+            Completed in {formatTime(currentTime)}
           </div>
         </motion.div>
       )}

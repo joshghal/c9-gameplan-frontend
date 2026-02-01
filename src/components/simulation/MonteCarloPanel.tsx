@@ -108,27 +108,31 @@ export function MonteCarloPanel() {
   }, [sessionId, iterations]);
 
   return (
-    <div className="bg-black/40 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
-      <div className="flex items-center gap-2 mb-4">
-        <BarChart3 className="w-5 h-5 text-orange-400" />
-        <h3 className="text-lg font-semibold text-white">Monte Carlo</h3>
+    <div className="hud-panel hud-panel-cyan p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <BarChart3 className="w-4 h-4" style={{ color: 'var(--c9-cyan)' }} />
+        <h3 className="text-sm font-bold uppercase tracking-wider" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--c9-cyan)' }}>Win Probability</h3>
       </div>
+      <p className="text-xs mb-4" style={{ color: 'var(--text-tertiary)' }}>Re-run this round multiple times to estimate each side&apos;s win rate</p>
 
       {/* Iteration selector */}
       <div className="mb-4">
-        <label className="text-xs text-gray-400 uppercase tracking-wider mb-1 block">
-          Iterations
+        <label className="text-xs uppercase tracking-widest mb-1 block" style={{ fontFamily: 'var(--font-rajdhani)', color: 'var(--text-secondary)' }}>
+          Simulations
         </label>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           {[10, 20, 50].map((n) => (
             <button
               key={n}
               onClick={() => setIterations(n)}
-              className={`flex-1 py-1.5 text-xs rounded-lg border transition-colors ${
-                iterations === n
-                  ? 'bg-orange-500/20 border-orange-500/50 text-orange-400'
-                  : 'bg-white/5 border-white/10 text-gray-400'
-              }`}
+              className="flex-1 py-1.5 text-xs transition-all"
+              style={{
+                background: iterations === n ? 'rgba(0,174,239,0.12)' : 'var(--bg-elevated)',
+                border: `1px solid ${iterations === n ? 'var(--c9-cyan)' : 'var(--border-default)'}`,
+                color: iterations === n ? 'var(--c9-cyan)' : 'var(--text-secondary)',
+                clipPath: 'var(--clip-corner-sm)',
+                fontFamily: 'var(--font-jetbrains-mono)',
+              }}
             >
               {n}x
             </button>
@@ -140,26 +144,27 @@ export function MonteCarloPanel() {
       <button
         onClick={runMonteCarlo}
         disabled={isRunning || !sessionId || status !== 'completed'}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-colors disabled:opacity-50"
+        className="btn-c9 w-full flex items-center justify-center gap-2 py-2.5 text-sm font-medium disabled:opacity-50"
       >
         {isRunning ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
           <Play className="w-4 h-4" />
         )}
-        {isRunning ? 'Running...' : 'Run Analysis'}
+        {isRunning ? 'Simulating...' : 'Run Simulations'}
       </button>
 
       {/* Animated progress bar during run */}
       {isRunning && (
         <div className="mt-3">
-          <div className="flex justify-between text-xs text-gray-400 mb-1">
+          <div className="flex justify-between text-xs mb-1" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-jetbrains-mono)' }}>
             <span>Simulating {iterations} rounds...</span>
             <span>{Math.round(progress)}%</span>
           </div>
-          <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+          <div className="h-1.5 overflow-hidden" style={{ background: 'var(--bg-elevated)', clipPath: 'var(--clip-corner-sm)' }}>
             <motion.div
-              className="h-full bg-gradient-to-r from-orange-600 to-yellow-500 rounded-full"
+              className="h-full"
+              style={{ background: 'linear-gradient(90deg, var(--c9-cyan), var(--c9-cyan))' }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.3 }}
             />
@@ -177,21 +182,22 @@ export function MonteCarloPanel() {
             className="mt-4 space-y-3"
           >
             {/* Win rates with GSAP counters */}
-            <div className="p-3 rounded-xl bg-white/5">
-              <div className="text-xs text-gray-400 mb-2">Win Rate ({result.total} sims)</div>
+            <div className="p-3" style={{ background: 'var(--bg-elevated)', clipPath: 'var(--clip-corner-sm)' }}>
+              <div className="text-xs mb-2 data-readout" style={{ color: 'var(--text-secondary)' }}>Win Rate ({result.total} sims)</div>
 
               {/* Attack bar */}
               <div className="mb-2">
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-red-400">Attack</span>
-                  <span ref={atkCounterRef} className="text-white font-mono">0%</span>
+                  <span style={{ color: 'var(--val-red)', fontFamily: 'var(--font-rajdhani)' }}>Attack</span>
+                  <span ref={atkCounterRef} className="data-readout" style={{ color: 'var(--val-red)' }}>0%</span>
                 </div>
-                <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-2 overflow-hidden" style={{ background: 'var(--bg-primary)', clipPath: 'var(--clip-corner-sm)' }}>
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${result.attack_win_rate * 100}%` }}
                     transition={{ duration: 1.2, ease: 'easeOut' }}
-                    className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full"
+                    className="h-full"
+                    style={{ background: 'var(--val-red)', boxShadow: '0 0 8px rgba(255,70,84,0.4)' }}
                   />
                 </div>
               </div>
@@ -199,32 +205,34 @@ export function MonteCarloPanel() {
               {/* Defense bar */}
               <div>
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-blue-400">Defense</span>
-                  <span ref={defCounterRef} className="text-white font-mono">0%</span>
+                  <span style={{ color: 'var(--val-teal)', fontFamily: 'var(--font-rajdhani)' }}>Defense</span>
+                  <span ref={defCounterRef} className="data-readout" style={{ color: 'var(--val-teal)' }}>0%</span>
                 </div>
-                <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
+                <div className="h-2 overflow-hidden" style={{ background: 'var(--bg-primary)', clipPath: 'var(--clip-corner-sm)' }}>
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${result.defense_win_rate * 100}%` }}
                     transition={{ duration: 1.2, ease: 'easeOut' }}
-                    className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full"
+                    className="h-full"
+                    style={{ background: 'var(--val-teal)', boxShadow: '0 0 8px rgba(18,212,180,0.4)' }}
                   />
                 </div>
               </div>
             </div>
 
             {/* Staggered iteration dots (GSAP) */}
-            <div className="p-3 rounded-xl bg-white/5">
-              <div className="text-xs text-gray-400 mb-2">Per-Run Results</div>
+            <div className="p-3" style={{ background: 'var(--bg-elevated)', clipPath: 'var(--clip-corner-sm)' }}>
+              <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-rajdhani)' }}>Per-Run Results</div>
               <div ref={dotsContainerRef} className="flex flex-wrap gap-1.5">
                 {result.iterations.map((iter) => (
                   <div
                     key={iter.iteration}
-                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold ${
-                      iter.winner === 'attack'
-                        ? 'bg-red-500/80 text-red-100'
-                        : 'bg-blue-500/80 text-blue-100'
-                    }`}
+                    className="w-4 h-4 flex items-center justify-center text-[8px] font-bold"
+                    style={{
+                      background: iter.winner === 'attack' ? 'rgba(255,70,84,0.6)' : 'rgba(18,212,180,0.6)',
+                      color: iter.winner === 'attack' ? 'var(--val-red)' : 'var(--val-teal)',
+                      clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+                    }}
                     title={`#${iter.iteration}: ${iter.winner} (${Math.floor(iter.duration_ms / 1000)}s, ${iter.kills}K)`}
                   >
                     {iter.winner === 'attack' ? 'A' : 'D'}
@@ -235,9 +243,9 @@ export function MonteCarloPanel() {
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-2">
-              <div className="p-2 rounded-lg bg-white/5 text-center">
-                <div className="text-xs text-gray-400">Avg Duration</div>
-                <div className="text-sm font-mono text-white">
+              <div className="p-2 text-center" style={{ background: 'var(--bg-elevated)', clipPath: 'var(--clip-corner-sm)' }}>
+                <div className="text-xs" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-rajdhani)' }}>Avg Duration</div>
+                <div className="data-readout text-sm" style={{ color: 'var(--text-primary)' }}>
                   {Math.floor(
                     result.iterations.reduce((a, b) => a + b.duration_ms, 0) /
                       result.iterations.length /
@@ -245,9 +253,9 @@ export function MonteCarloPanel() {
                   )}s
                 </div>
               </div>
-              <div className="p-2 rounded-lg bg-white/5 text-center">
-                <div className="text-xs text-gray-400">Spike Plant %</div>
-                <div className="text-sm font-mono text-white">
+              <div className="p-2 text-center" style={{ background: 'var(--bg-elevated)', clipPath: 'var(--clip-corner-sm)' }}>
+                <div className="text-xs" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-rajdhani)' }}>Spike Plant %</div>
+                <div className="data-readout text-sm" style={{ color: 'var(--text-primary)' }}>
                   {(
                     (result.iterations.filter((i) => i.spike_planted).length / result.total) *
                     100
