@@ -37,7 +37,7 @@ const shareTechMono = Share_Tech_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cloud9 Tactical Vision — VALORANT Pro Simulation",
+  title: "Cloud9 Gameplan — VALORANT Pro Simulation",
   description:
     "Simulate full VALORANT rounds with pro movement patterns, combat models, and positioning data from 590K+ VCT samples. Built for Cloud9 coaching staff.",
   icons: {

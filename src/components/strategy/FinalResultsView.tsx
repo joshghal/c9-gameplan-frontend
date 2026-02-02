@@ -55,7 +55,7 @@ export function FinalResultsView() {
         </div>
 
         {/* Round info */}
-        <div className="text-center text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+        <div className="text-center text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
           <span className="capitalize">{round.map_name}</span>
           <span className="mx-2" style={{ color: 'var(--border-default)' }}>·</span>
           <span className="capitalize">{round.user_side} side</span>
@@ -65,6 +65,19 @@ export function FinalResultsView() {
               <span className="capitalize">{winner} wins</span>
             </>
           )}
+        </div>
+
+        {/* Team roster */}
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
+          {round.teammates.map((t) => (
+            <div key={t.player_id} className="flex items-center gap-1.5 px-2 py-1 text-[11px]" style={{
+              background: 'rgba(0,174,239,0.06)',
+              border: '1px solid rgba(0,174,239,0.15)',
+            }}>
+              <span style={{ color: 'var(--c9-cyan)', fontFamily: 'var(--font-share-tech-mono)' }}>{t.agent}</span>
+              <span style={{ color: 'var(--text-tertiary)' }}>{t.name}</span>
+            </div>
+          ))}
         </div>
 
         {/* Phase breakdown */}

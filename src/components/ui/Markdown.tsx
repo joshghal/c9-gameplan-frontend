@@ -75,6 +75,30 @@ const components: Components = {
       {children}
     </blockquote>
   ),
+  table: ({ children }) => (
+    <div className="my-3 overflow-x-auto">
+      <table className="w-full text-xs border-collapse" style={{ fontFamily: 'var(--font-rajdhani)' }}>
+        {children}
+      </table>
+    </div>
+  ),
+  thead: ({ children }) => (
+    <thead style={{ borderBottom: '2px solid rgba(0,174,239,0.3)' }}>{children}</thead>
+  ),
+  tbody: ({ children }) => <tbody>{children}</tbody>,
+  tr: ({ children }) => (
+    <tr style={{ borderBottom: '1px solid var(--border-default)' }}>{children}</tr>
+  ),
+  th: ({ children }) => (
+    <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--c9-cyan)' }}>
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="px-3 py-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+      {children}
+    </td>
+  ),
 };
 
 export function Markdown({ children, className = '' }: MarkdownProps) {

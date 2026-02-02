@@ -109,15 +109,32 @@ export function MatchReplayView({ roundId }: MatchReplayViewProps) {
     return () => window.removeEventListener('resize', update);
   }, []);
 
-  // ─── Snapshot playback (fixed interval per moment) ─────────────────────
-  // Each snapshot = one narration moment, so use fixed 4s per tick for readability.
+  // ─── Moment index is the primary playback cursor ───────────────────────
+  // momentIdx steps through real narration moments; snapIdx is derived.
+  const [momentIdx, setMomentIdx] = useState(0);
+
+  // Map moment index → snapshot index (evenly distribute snapshots across moments)
+  const momentToSnap = useCallback((mi: number) => {
+    if (!result || moments.length === 0) return 0;
+    const snapCount = result.snapshots.length;
+    const momCount = moments.length;
+    if (momCount === 1) return Math.min(mi, snapCount - 1);
+    return Math.min(Math.round((mi / (momCount - 1)) * (snapCount - 1)), snapCount - 1);
+  }, [result, moments]);
+
+  // Keep snapIdx synced to momentIdx
   useEffect(() => {
-    if (!isSnapshotPlaying || !result || result.snapshots.length === 0) return;
-    const INTERVAL_MS = 4000; // 4 seconds per moment — enough to read narration
+    setSnapIdx(momentToSnap(momentIdx));
+  }, [momentIdx, momentToSnap]);
+
+  // ─── Playback timer (steps through moments) ──────────────────────────
+  useEffect(() => {
+    if (!isSnapshotPlaying || moments.length === 0) return;
+    const INTERVAL_MS = 4000;
     const timer = setInterval(() => {
-      setSnapIdx((prev) => {
+      setMomentIdx((prev) => {
         const next = prev + 1;
-        if (next >= result.snapshots.length) {
+        if (next >= moments.length) {
           setIsSnapshotPlaying(false);
           return prev;
         }
@@ -126,11 +143,9 @@ export function MatchReplayView({ roundId }: MatchReplayViewProps) {
     }, INTERVAL_MS);
     snapshotTimerRef.current = timer;
     return () => clearInterval(timer);
-  }, [isSnapshotPlaying, result]);
+  }, [isSnapshotPlaying, moments]);
 
-  // ─── 1:1 mapping: activeMomentIdx === snapIdx ─────────────────────────
-  // Moments are capped to snapshot count on narration complete, so they're always equal.
-  const activeMomentIdx = moments.length > 0 && snapIdx < moments.length ? snapIdx : -1;
+  const activeMomentIdx = moments.length > 0 && momentIdx < moments.length ? momentIdx : -1;
 
   const prevMomentIdxRef = useRef(-1);
 
@@ -174,21 +189,10 @@ export function MatchReplayView({ roundId }: MatchReplayViewProps) {
       },
       () => {
         setNarrationLoading(false);
-        // Enforce 1:1 moment-to-snapshot mapping
-        const snapCount = result.snapshots.length;
-        if (newMoments.length > snapCount) {
-          // Trim excess moments
-          newMoments.length = snapCount;
-        } else if (newMoments.length > 0 && newMoments.length < snapCount) {
-          // Pad with last moment repeated (camera stays, text stays) but clear questions
-          const last = newMoments[newMoments.length - 1];
-          while (newMoments.length < snapCount) {
-            newMoments.push({ ...last, what_if_questions: [] });
-          }
-        }
         setMoments([...newMoments]);
         setNarrationReady(true);
         if (newMoments.length === 0) {
+          // No narration — just play snapshots directly
           setSnapIdx(0);
           setIsSnapshotPlaying(true);
         }
@@ -205,7 +209,7 @@ export function MatchReplayView({ roundId }: MatchReplayViewProps) {
   // ─── Start playback when narration is ready ───────────────────────────
   useEffect(() => {
     if (narrationReady && moments.length > 0 && !isSnapshotPlaying) {
-      setSnapIdx(0);
+      setMomentIdx(0);
       setIsSnapshotPlaying(true);
     }
   }, [narrationReady, moments]);
@@ -220,9 +224,9 @@ export function MatchReplayView({ roundId }: MatchReplayViewProps) {
   }, []);
 
   const seekToMoment = useCallback((i: number) => {
-    if (!result || moments.length === 0) return;
-    setSnapIdx(Math.max(0, Math.min(i, result.snapshots.length - 1)));
-  }, [result, moments]);
+    if (moments.length === 0) return;
+    setMomentIdx(Math.max(0, Math.min(i, moments.length - 1)));
+  }, [moments]);
 
   // ─── Chat ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -683,7 +687,7 @@ export function MatchReplayView({ roundId }: MatchReplayViewProps) {
                 {/* Transport controls */}
                 {moments.length > 0 && (
                   <div className="flex items-center justify-center gap-3 py-3" style={{ borderBottom: '1px solid var(--border-default)' }}>
-                    <button onClick={() => { pauseNarration(); setSnapIdx(0); }} className="btn-tactical p-2" title="Stop"><Square className="w-4 h-4" /></button>
+                    <button onClick={() => { pauseNarration(); setMomentIdx(0); }} className="btn-tactical p-2" title="Stop"><Square className="w-4 h-4" /></button>
                     <button onClick={() => seekToMoment(Math.max(activeMomentIdx - 1, 0))} disabled={activeMomentIdx <= 0} className="btn-tactical p-2 disabled:opacity-30" title="Previous"><SkipBack className="w-4 h-4" /></button>
                     <button onClick={isSnapshotPlaying ? pauseNarration : playNarration} className="p-3" style={{ background: 'var(--c9-cyan)', clipPath: 'var(--clip-corner-sm)', color: '#000' }}>
                       {isSnapshotPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}

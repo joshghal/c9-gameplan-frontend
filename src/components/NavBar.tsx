@@ -7,6 +7,7 @@ const tabs = [
   { href: '/', label: 'Simulation' },
   { href: '/tactical', label: 'Tactical Planner' },
   { href: '/matches', label: 'Match Archive' },
+  { href: '/docs', label: 'Docs' },
 ];
 
 export function NavBar() {
@@ -36,7 +37,7 @@ export function NavBar() {
               color: 'var(--text-secondary, #7a8599)',
             }}
           >
-            Tactical Vision
+            Gameplan
           </span>
         </Link>
 

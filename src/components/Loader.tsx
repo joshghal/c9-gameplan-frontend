@@ -258,7 +258,7 @@ export default function Loader({ onLoadingComplete }: LoaderProps) {
                 color: 'var(--text-primary, #e8e8e8)',
               }}
             >
-              Tactical Vision
+              Gameplan
             </h1>
           </div>
 
