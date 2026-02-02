@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import gsap from 'gsap';
 import { useSimulationStore } from '@/store/simulation';
 import { useCameraStore } from '@/store/camera';
-import { normalizedToPixel, TEAM_COLORS, AGENT_COLORS } from '@/lib/utils';
+import { normalizedToPixel } from '@/lib/utils';
 import type { PlayerPosition } from '@/lib/api';
 
 interface MapCanvasProps {
@@ -348,17 +348,15 @@ export function MapCanvas({ width = 800, height = 800 }: MapCanvasProps) {
         <AnimatePresence>
           {positions.map((player) => {
             const pixel = normalizedToPixel(player.x, player.y, width, height);
-            const color = TEAM_COLORS[player.side] || TEAM_COLORS.attack;
-            const agentName = player.agent?.toLowerCase() || 'unknown';
-            const agentColor = AGENT_COLORS[agentName] || AGENT_COLORS.unknown;
+            const teamColor = player.side === 'attack' ? 'var(--val-red)' : 'var(--val-teal)';
 
             return (
               <motion.div
                 key={player.player_id}
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{
-                  x: pixel.x - 16,
-                  y: pixel.y - 16,
+                  x: pixel.x - (player.is_alive ? 8 : 16),
+                  y: pixel.y - (player.is_alive ? 8 : 16),
                   scale: player.is_alive ? 1 : 0.5,
                   opacity: !player.is_alive
                     ? 0.3
@@ -377,61 +375,65 @@ export function MapCanvas({ width = 800, height = 800 }: MapCanvasProps) {
                 onMouseLeave={() => setHoveredPlayer(null)}
               >
                 {/* Player marker */}
-                <div
-                  className="relative w-8 h-8 rounded-full flex items-center justify-center"
-                  style={{
-                    backgroundColor: player.is_alive ? agentColor : '#6b7280',
-                    border: `3px solid ${color.primary}`,
-                    boxShadow: player.is_alive
-                      ? `0 0 15px ${color.primary}40, inset 0 0 10px rgba(255,255,255,0.2)`
-                      : 'none',
-                  }}
-                >
-                  <span className="text-white font-bold text-xs">
-                    {player.is_alive ? (agentName[0]?.toUpperCase() || '?') : '✕'}
-                  </span>
+                <div className="relative">
+                  {player.is_alive ? (
+                    <div
+                      className="w-4 h-4"
+                      style={{
+                        backgroundColor: teamColor,
+                        border: '2px solid var(--text-primary)',
+                        clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center"
+                      style={{
+                        backgroundColor: '#6b7280',
+                        border: '3px solid #4b5563',
+                      }}
+                    >
+                      <span className="text-white font-bold text-xs">✕</span>
+                    </div>
+                  )}
 
-                  {highlightedPlayers.includes(player.player_id) && (
-                    <motion.div
-                      animate={{ scale: [1, 1.4, 1], opacity: [0.8, 0.3, 0.8] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                      className="absolute -inset-2 border-2 border-purple-400 rounded-full"
+                  {/* Spike indicator */}
+                  {player.has_spike && (
+                    <div
+                      className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-yellow-400 rounded-sm"
+                      style={{ boxShadow: '0 0 6px rgba(250, 204, 21, 0.8)' }}
                     />
                   )}
 
-                  {player.has_spike && (
-                    <div
-                      className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-sm"
-                      style={{
-                        boxShadow: '0 0 6px rgba(250, 204, 21, 0.8)',
-                      }}
+                  {/* Highlight ring */}
+                  {highlightedPlayers.includes(player.player_id) && (
+                    <motion.div
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.8, 0.3, 0.8] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                      className="absolute -inset-1.5 border-2 border-purple-400 rounded-full"
                     />
                   )}
                 </div>
 
-                {/* Health bar */}
-                {player.is_alive && (
-                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-gray-700 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{
-                        backgroundColor: player.health > 50 ? '#22c55e' : player.health > 25 ? '#eab308' : '#ef4444',
-                      }}
-                      initial={{ width: '100%' }}
-                      animate={{ width: `${player.health}%` }}
-                      transition={{ duration: 0.3 }}
-                    />
-                  </div>
-                )}
+                {/* Player name */}
+                <div
+                  className="absolute top-5 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap"
+                  style={{
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-share-tech-mono)',
+                  }}
+                >
+                  {player.name ?? player.player_id}
+                </div>
 
-                {/* Tooltip */}
+                {/* Tooltip on hover */}
                 <AnimatePresence>
                   {hoveredPlayer === player.player_id && (
                     <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
-                      className="absolute left-1/2 -translate-x-1/2 -top-16 bg-black/90 backdrop-blur-sm px-3 py-2 rounded-lg whitespace-nowrap z-50"
+                      className="absolute left-1/2 -translate-x-1/2 -top-14 bg-black/90 backdrop-blur-sm px-3 py-2 rounded-lg whitespace-nowrap z-50"
                     >
                       <div className="text-sm font-semibold text-white">
                         {player.name ?? player.player_id}

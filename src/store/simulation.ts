@@ -95,6 +95,9 @@ interface SimulationStore {
   continueLiveNarration: () => void;
 }
 
+// Module-level name cache — persists across position updates so names are never lost
+const playerNameCache: Record<string, string> = {};
+
 export const useSimulationStore = create<SimulationStore>((set, get) => ({
   // Initial state
   sessionId: null,
@@ -190,7 +193,12 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
         currentTime: state.current_time_ms,
         phase: state.phase,
         status: 'running',
-        positions: state.positions,
+        positions: state.positions.map((p: PlayerPosition) => {
+          if (p.name) playerNameCache[p.player_id] = p.name;
+          return playerNameCache[p.player_id] && !p.name
+            ? { ...p, name: playerNameCache[p.player_id] }
+            : p;
+        }),
         events: state.events,
         spikePlanted: state.spike_planted,
         spikeSite: state.spike_site,
@@ -215,7 +223,8 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
       const state = response.data;
 
       // Update status from backend response
-      const newStatus = state.status === 'completed' ? 'completed' : 'running';
+      const roundOver = (state as unknown as Record<string, unknown>).round_over === true;
+      const newStatus = state.status === 'completed' || roundOver ? 'completed' : 'running';
       const isCompleted = newStatus === 'completed';
 
       // Merge any snapshots returned by the tick response (backend auto-captures at kills/plants)
@@ -224,7 +233,12 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
         currentTime: state.current_time_ms,
         phase: state.phase,
         status: newStatus,
-        positions: state.positions,
+        positions: state.positions.map((p: PlayerPosition) => {
+          if (p.name) playerNameCache[p.player_id] = p.name;
+          return playerNameCache[p.player_id] && !p.name
+            ? { ...p, name: playerNameCache[p.player_id] }
+            : p;
+        }),
         events: state.events,
         spikePlanted: state.spike_planted,
         spikeSite: state.spike_site,
@@ -263,7 +277,12 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
         currentTime: data.current_time_ms,
         phase: data.phase,
         status: 'completed',
-        positions: data.positions,
+        positions: data.positions.map((p: PlayerPosition) => {
+          if (p.name) playerNameCache[p.player_id] = p.name;
+          return playerNameCache[p.player_id] && !p.name
+            ? { ...p, name: playerNameCache[p.player_id] }
+            : p;
+        }),
         events: data.events,
         spikePlanted: data.spike_planted,
         spikeSite: data.spike_site,
@@ -330,7 +349,16 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
   },
 
   // Position actions
-  setPositions: (positions) => set({ positions }),
+  setPositions: (positions) => {
+    // Backfill names from cache & update cache with any new names
+    const enriched = positions.map((p) => {
+      if (p.name) playerNameCache[p.player_id] = p.name;
+      return playerNameCache[p.player_id] && !p.name
+        ? { ...p, name: playerNameCache[p.player_id] }
+        : p;
+    });
+    set({ positions: enriched });
+  },
 
   // What-If actions
   setWhatIfResult: (result) => set({ whatIfResult: result }),

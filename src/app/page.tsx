@@ -1,12 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Loader from '@/components/Loader';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Loader2 } from 'lucide-react';
-
-// Module-level flag — survives re-mounts, resets only on full page refresh
-let hasLoadedOnce = false;
 
 const MAP_WALLPAPERS = [
   'ascent', 'bind', 'breeze', 'fracture', 'haven', 'icebox',
@@ -80,7 +76,7 @@ function IdleStage() {
             src={`/maps/wallpapers/${bgWallpaper}.png`}
             alt=""
             className="w-full h-full object-cover"
-            style={{ filter: 'brightness(0.45) saturate(0.85)', transform: 'scale(1.05)' }}
+            style={{ filter: 'brightness(0.25) saturate(0.7)', transform: 'scale(1.05)' }}
           />
         </motion.div>
       </AnimatePresence>
@@ -112,7 +108,7 @@ function IdleStage() {
             Simulation
           </h1>
           <p className="text-sm" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-share-tech-mono)' }}>
-            Configure teams, map, and economy — simulate a full round using pro movement patterns, combat models, and positioning data derived from 590K+ VCT samples
+            Configure map, teams, and economy — simulate a full round using pro movement patterns, combat models, and positioning data derived from 590K+ VCT samples
           </p>
         </motion.div>
 
@@ -404,7 +400,6 @@ function CompletedStage() {
 // ─── MAIN PAGE ───
 export default function Home() {
   const { status } = useSimulationStore();
-  const [isLoaderComplete, setIsLoaderComplete] = useState(hasLoadedOnce);
 
   const stage = status === 'idle' ? 'idle'
     : status === 'completed' ? 'completed'
@@ -412,17 +407,12 @@ export default function Home() {
 
   return (
     <div className="relative" style={{ background: 'var(--bg-abyss)' }}>
-      {!hasLoadedOnce && (
-        <Loader onLoadingComplete={() => { hasLoadedOnce = true; setIsLoaderComplete(true); }} />
-      )}
       <FilmGrain />
-      {isLoaderComplete && (
-        <AnimatePresence mode="wait">
-          {stage === 'idle' && <IdleStage />}
-          {stage === 'running' && <RunningStage />}
-          {stage === 'completed' && <CompletedStage />}
-        </AnimatePresence>
-      )}
+      <AnimatePresence mode="wait">
+        {stage === 'idle' && <IdleStage />}
+        {stage === 'running' && <RunningStage />}
+        {stage === 'completed' && <CompletedStage />}
+      </AnimatePresence>
     </div>
   );
 }

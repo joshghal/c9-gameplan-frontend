@@ -5,6 +5,7 @@ import { JetBrains_Mono } from "next/font/google";
 import { Share_Tech_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { NavBar } from "@/components/NavBar";
+import { AppLoader } from "@/components/AppLoader";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,8 +37,13 @@ const shareTechMono = Share_Tech_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "C9 Tactical Vision - VALORANT Battle Simulator",
-  description: "Cloud9 tactical simulation platform for VALORANT professional play analysis",
+  title: "Cloud9 Tactical Vision — VALORANT Pro Simulation",
+  description:
+    "Simulate full VALORANT rounds with pro movement patterns, combat models, and positioning data from 590K+ VCT samples. Built for Cloud9 coaching staff.",
+  icons: {
+    icon: "/cloud9-logo.svg",
+    apple: "/cloud9-logo.svg",
+  },
 };
 
 export default function RootLayout({
@@ -51,6 +57,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${rajdhani.variable} ${jetbrainsMono.variable} ${shareTechMono.variable} antialiased min-h-screen`}
       >
         <Providers>
+          <AppLoader />
           <NavBar />
 
           {children}

@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 
 const tabs = [
   { href: '/', label: 'Simulation' },
-  { href: '/strategy', label: 'Strategy' },
+  { href: '/tactical', label: 'Tactical Planner' },
 ];
 
 export function NavBar() {

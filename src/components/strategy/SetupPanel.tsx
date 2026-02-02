@@ -75,7 +75,7 @@ export function SetupPanel() {
             src={`/maps/wallpapers/${bgWallpaper}.png`}
             alt=""
             className="w-full h-full object-cover"
-            style={{ filter: 'brightness(0.45) saturate(0.85)', transform: 'scale(1.05)' }}
+            style={{ filter: 'brightness(0.25) saturate(0.7)', transform: 'scale(1.05)' }}
           />
         </motion.div>
       </AnimatePresence>

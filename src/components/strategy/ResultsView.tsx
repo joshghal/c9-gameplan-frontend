@@ -178,6 +178,31 @@ export function ResultsView() {
               </div>
             ))}
 
+            {/* FOV Cones */}
+            <svg className="absolute inset-0 pointer-events-none" width={mapSize} height={mapSize} style={{ zIndex: 5 }}>
+              {snap?.players.map((p) => {
+                if (!p.is_alive || p.facing_angle == null) return null;
+                const px = p.x * mapSize;
+                const py = p.y * mapSize;
+                const coneLength = mapSize * 0.075;
+                const fovHalf = Math.PI / 4;
+                const leftAngle = p.facing_angle - fovHalf;
+                const rightAngle = p.facing_angle + fovHalf;
+                const isUser = p.side === round.user_side;
+                const fillColor = isUser ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.15)';
+                const strokeColor = isUser ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.4)';
+                return (
+                  <polygon
+                    key={`fov-${p.player_id}`}
+                    points={`${px},${py} ${px + Math.cos(leftAngle) * coneLength},${py + Math.sin(leftAngle) * coneLength} ${px + Math.cos(rightAngle) * coneLength},${py + Math.sin(rightAngle) * coneLength}`}
+                    fill={fillColor}
+                    stroke={strokeColor}
+                    strokeWidth="1"
+                  />
+                );
+              })}
+            </svg>
+
             {/* Players */}
             {snap?.players.map((p) => {
               const isUser = p.side === round.user_side;
