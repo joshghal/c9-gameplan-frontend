@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# C9 Gameplan — Frontend
+
+VALORANT tactical simulation and analysis platform for Cloud9 coaching staff. WebGL-powered simulation canvas, tactical planner with VCT ghost paths, match archive with AI narration, and comprehensive documentation.
+
+**Live:** https://c9-gameplan-frontend.vercel.app
+
+## Tech Stack
+
+- **Next.js 16** (App Router) + **React 19** + **TypeScript 5**
+- **TailwindCSS 4** — utility-first styling with C9 design tokens
+- **Zustand** — state management (simulation, camera, strategy stores)
+- **Pixi.js** — WebGL canvas for map rendering, player markers, FOV cones
+- **Framer Motion + GSAP** — UI animations and camera pan/zoom during AI narration
+- **React Query + Axios** — data fetching and caching
+- **Lucide React** — icon system
+
+## Features
+
+- **Live Simulation** — 5v5 round simulation with real-time Pixi.js canvas, playback controls (0.5x–4x), Monte Carlo analysis (10–50 iterations)
+- **Tactical Planner** — 4-phase planning (Setup/Mid-Round/Execute/Post-Plant), waypoint placement on VCT ghost paths, per-phase AI narration, What-If chat
+- **VCT Match Archive** — browse 11 maps, replay rounds with interpolated pro positions, AI narration with moment-by-moment analysis
+- **AI Coaching** — SSE-streamed narration, What-If chat, scouting reports across all tools
+- **Documentation** — comprehensive `/docs` page covering every system
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev    # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# .env.local
+NEXT_PUBLIC_API_URL=http://localhost:8000   # Backend URL
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project Structure
 
-## Learn More
+```
+src/
+├── app/
+│   ├── page.tsx          # / — Live Simulation
+│   ├── tactical/         # /tactical — Tactical Planner
+│   ├── matches/          # /matches — VCT Match Archive
+│   └── docs/             # /docs — Documentation
+├── components/
+│   ├── simulation/       # Canvas, controls, HUD panels
+│   ├── strategy/         # Tactical planner components
+│   ├── matches/          # Match archive components
+│   ├── coaching/         # AI narration, chat, scouting
+│   ├── docs/             # Documentation view
+│   └── ui/               # Shared UI (Markdown, etc.)
+├── store/
+│   ├── simulation.ts     # Simulation state + API
+│   ├── strategy.ts       # Tactical planner state
+│   └── camera.ts         # Canvas camera control
+└── lib/                  # API client, utilities
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run dev       # Development server (port 3000)
+npm run build     # Production build
+npm run start     # Start production server
+npm run lint      # ESLint
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Deployment
 
-## Deploy on Vercel
+Deployed on **Vercel**. Set `NEXT_PUBLIC_API_URL` to the Cloud Run backend URL in Vercel environment variables.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Built With
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Cloud9 Esports + JetBrains IDE + Junie AI — Sky's the Limit Hackathon 2026
