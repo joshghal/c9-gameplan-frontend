@@ -32,6 +32,7 @@ export default function Loader({ onLoadingComplete }: LoaderProps) {
   const bgRightRef = useRef<HTMLDivElement>(null);
   const bracketsRef = useRef<HTMLDivElement>(null);
   const scanlinesRef = useRef<HTMLDivElement>(null);
+  const sponsorRef = useRef<HTMLDivElement>(null);
 
   const entranceCompleteRef = useRef(false);
   const hasCompletedRef = useRef(false);
@@ -68,6 +69,7 @@ export default function Loader({ onLoadingComplete }: LoaderProps) {
     gsap.set(bgLeftRef.current, { opacity: 0, x: -30 });
     gsap.set(bgRightRef.current, { opacity: 0, x: 30 });
     gsap.set(bracketsRef.current, { opacity: 0, scale: 1.1 });
+    gsap.set(sponsorRef.current, { opacity: 0, y: 10 });
 
     tl.to(bgLeftRef.current, { opacity: 1, x: 0, duration: 0.8, ease: 'power2.out' }, 0)
       .to(bgRightRef.current, { opacity: 1, x: 0, duration: 0.8, ease: 'power2.out' }, 0)
@@ -75,7 +77,8 @@ export default function Loader({ onLoadingComplete }: LoaderProps) {
       .to(logoRef.current, { opacity: 1, scale: 1, duration: 0.6, ease: 'back.out(1.4)' }, 0.2)
       .to(titleRef.current, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, 0.35)
       .to(subtitleRef.current, { opacity: 1, duration: 0.4, ease: 'power2.out' }, 0.5)
-      .to(progressRef.current, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, 0.7);
+      .to(progressRef.current, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' }, 0.7)
+      .to(sponsorRef.current, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }, 0.9);
 
     return () => { tl.kill(); };
   }, [startPreload]);
@@ -297,6 +300,47 @@ export default function Loader({ onLoadingComplete }: LoaderProps) {
                 }}
               >
                 {Math.round(displayProgress)}%
+              </div>
+            </div>
+          </div>
+
+          {/* Sponsor logos */}
+          <div ref={sponsorRef} className="mt-14 flex flex-col items-center gap-3 opacity-0">
+            <span
+              className="text-[10px] uppercase tracking-[0.5em]"
+              style={{
+                fontFamily: 'var(--font-share-tech-mono)',
+                color: 'var(--text-secondary, #7a8599)',
+              }}
+            >
+              Built with
+            </span>
+            <div className="flex items-center gap-5">
+              <img
+                src="/jetbrains-logo-white.svg"
+                alt="JetBrains"
+                className="h-6 w-auto opacity-70"
+              />
+              <div
+                className="h-5 w-px"
+                style={{ background: 'rgba(255,255,255,0.12)' }}
+              />
+              <div className="flex items-center gap-2">
+                <img
+                  src="/junie-logo.svg"
+                  alt="Junie"
+                  className="h-6 w-auto"
+                />
+                <span
+                  className="text-sm font-semibold tracking-[0.08em]"
+                  style={{
+                    fontFamily: 'var(--font-rajdhani)',
+                    color: '#48E054',
+                    textShadow: '0 0 12px rgba(72,224,84,0.3)',
+                  }}
+                >
+                  Junie
+                </span>
               </div>
             </div>
           </div>

@@ -2,7 +2,7 @@
 
 import { useStrategyStore, PHASES, type Phase } from '@/store/strategy';
 import { PLAYER_COLORS } from './PlayerPlanList';
-import type { Waypoint } from '@/lib/strategy-api';
+import type { Waypoint, PhaseCheckpoint } from '@/lib/strategy-api';
 
 interface WaypointOverlayProps {
   width: number;
@@ -17,11 +17,19 @@ const PHASE_OPACITY: Record<Phase, number> = {
 };
 
 export function WaypointOverlay({ width, height }: WaypointOverlayProps) {
-  const { round, waypoints, currentPhase, selectedPlayerId, showGhosts } = useStrategyStore();
+  const { round, waypoints, currentPhase, selectedPlayerId, showGhosts, currentCheckpoint } = useStrategyStore();
 
   if (!round) return null;
 
   const toPixel = (x: number, y: number) => [x * width, y * height];
+
+  // Build dead player set from checkpoint
+  const deadPlayerIds = new Set<string>();
+  if (currentCheckpoint) {
+    for (const p of currentCheckpoint.players) {
+      if (!p.is_alive) deadPlayerIds.add(p.player_id);
+    }
+  }
 
   // Draw all phases, current phase on top
   const phasesToDraw = [...PHASES].sort((a, b) => {
@@ -37,6 +45,9 @@ export function WaypointOverlay({ width, height }: WaypointOverlayProps) {
         const phaseWps = waypoints[phase] ?? {};
 
         return round.teammates.map((t, playerIdx) => {
+          // Skip dead players
+          if (deadPlayerIds.has(t.player_id)) return null;
+
           const wps = phaseWps[t.player_id] ?? [];
           if (wps.length === 0) return null;
 
@@ -44,8 +55,8 @@ export function WaypointOverlay({ width, height }: WaypointOverlayProps) {
           const isSelected = t.player_id === selectedPlayerId;
           const opacity = isCurrentPhase ? 1 : PHASE_OPACITY[phase] * 0.5;
 
-          // Get previous phase's last waypoint or spawn as start
-          const prevPos = getPreviousPosition(t, phase, waypoints, round.teammates[playerIdx].spawn);
+          // Get previous phase's last waypoint, checkpoint position, or spawn as start
+          const prevPos = getPreviousPosition(t, phase, waypoints, round.teammates[playerIdx].spawn, currentCheckpoint);
           const allPoints = [prevPos, ...wps];
 
           return (
@@ -75,18 +86,6 @@ export function WaypointOverlay({ width, height }: WaypointOverlayProps) {
                       stroke="white"
                       strokeWidth={1}
                     />
-                    {/* Facing arrow */}
-                    {wp.facing !== undefined && (
-                      <line
-                        x1={px}
-                        y1={py}
-                        x2={px + Math.cos(wp.facing) * 16}
-                        y2={py + Math.sin(wp.facing) * 16}
-                        stroke={color}
-                        strokeWidth={2}
-                        markerEnd="none"
-                      />
-                    )}
                     {/* Index label */}
                     {isCurrentPhase && isSelected && (
                       <text
@@ -150,24 +149,6 @@ export function WaypointOverlay({ width, height }: WaypointOverlayProps) {
         });
       })}
 
-      {/* Spawn positions for current teammates */}
-      {round.teammates.map((t, i) => {
-        const [sx, sy] = toPixel(t.spawn[0], t.spawn[1]);
-        const isSelected = t.player_id === selectedPlayerId;
-        return (
-          <g key={`spawn-${t.player_id}`} opacity={0.5}>
-            <circle
-              cx={sx}
-              cy={sy}
-              r={isSelected ? 5 : 3}
-              fill="none"
-              stroke={PLAYER_COLORS[i]}
-              strokeWidth={1.5}
-              strokeDasharray="3,3"
-            />
-          </g>
-        );
-      })}
     </svg>
   );
 }
@@ -177,6 +158,7 @@ function getPreviousPosition(
   currentPhase: Phase,
   waypoints: Record<string, Record<string, Waypoint[]>>,
   spawn: [number, number],
+  checkpoint: PhaseCheckpoint | null,
 ): { x: number; y: number } {
   const phaseIdx = PHASES.indexOf(currentPhase);
 
@@ -187,6 +169,12 @@ function getPreviousPosition(
       const last = prevPhaseWps[prevPhaseWps.length - 1];
       return { x: last.x, y: last.y };
     }
+  }
+
+  // Use checkpoint position if available (from previous phase execution)
+  if (checkpoint) {
+    const cp = checkpoint.players.find((p) => p.player_id === teammate.player_id);
+    if (cp) return { x: cp.x, y: cp.y };
   }
 
   // Fallback to spawn

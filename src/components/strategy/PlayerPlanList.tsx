@@ -5,13 +5,22 @@ import { useStrategyStore, PHASES } from '@/store/strategy';
 const PLAYER_COLORS = ['#ff4654', '#ffe600', '#12d4b4', '#00AEEF', '#b967ff'];
 
 export function PlayerPlanList() {
-  const { round, selectedPlayerId, setSelectedPlayerId, waypoints, currentPhase, removeLastWaypoint, adoptGhostPath, adoptAllGhostPaths } = useStrategyStore();
+  const { round, selectedPlayerId, setSelectedPlayerId, waypoints, currentPhase, removeLastWaypoint, adoptGhostPath, adoptAllGhostPaths, currentCheckpoint } = useStrategyStore();
 
   if (!round) return null;
+
+  // Build dead player set from checkpoint
+  const deadPlayerIds = new Set<string>();
+  if (currentCheckpoint) {
+    for (const p of currentCheckpoint.players) {
+      if (!p.is_alive) deadPlayerIds.add(p.player_id);
+    }
+  }
 
   return (
     <div className="space-y-1">
       {round.teammates.map((t, i) => {
+        const isDead = deadPlayerIds.has(t.player_id);
         const isSelected = t.player_id === selectedPlayerId;
         const phaseWps = waypoints[currentPhase]?.[t.player_id] ?? [];
         const totalWps = PHASES.reduce(
@@ -22,42 +31,48 @@ export function PlayerPlanList() {
         return (
           <button
             key={t.player_id}
-            onClick={() => setSelectedPlayerId(t.player_id)}
+            onClick={() => !isDead && setSelectedPlayerId(t.player_id)}
+            disabled={isDead}
             className="w-full text-left px-3 py-2.5 transition-all text-sm"
             style={{
-              background: isSelected ? 'var(--bg-elevated)' : 'transparent',
-              border: `1px solid ${isSelected ? PLAYER_COLORS[i] : 'transparent'}`,
+              background: isSelected && !isDead ? 'var(--bg-elevated)' : 'transparent',
+              border: `1px solid ${isSelected && !isDead ? PLAYER_COLORS[i] : 'transparent'}`,
               clipPath: 'var(--clip-corner-sm)',
+              opacity: isDead ? 0.35 : 1,
             }}
           >
             <div className="flex items-center gap-2">
               <div
                 className="w-3 h-3 flex-shrink-0"
                 style={{
-                  backgroundColor: PLAYER_COLORS[i],
+                  backgroundColor: isDead ? 'var(--text-tertiary)' : PLAYER_COLORS[i],
                   clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
                 }}
               />
               <div className="min-w-0 flex-1">
                 <div className="font-medium truncate" style={{
-                  color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
+                  color: isDead ? 'var(--text-tertiary)' : isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
                   fontFamily: 'var(--font-rajdhani)',
+                  textDecoration: isDead ? 'line-through' : 'none',
                 }}>
                   {t.name}
                 </div>
                 <div className="text-xs capitalize" style={{ color: 'var(--text-tertiary)', fontFamily: 'var(--font-rajdhani)' }}>
-                  {t.agent} · {t.role}
+                  {isDead ? 'DEAD' : `${t.agent} · ${t.role}`}
+                  {!isDead && i === 0 && round.user_side === 'attack' && (
+                    <span style={{ color: 'var(--val-red)', marginLeft: 4 }}>⬡ SPIKE</span>
+                  )}
                 </div>
               </div>
               <div className="text-xs flex-shrink-0">
-                {phaseWps.length > 0 && (
+                {!isDead && phaseWps.length > 0 && (
                   <span className="px-1.5 py-0.5 data-readout" style={{
                     background: 'var(--bg-secondary)',
                     color: 'var(--text-primary)',
                     clipPath: 'var(--clip-corner-sm)',
                   }}>{phaseWps.length}</span>
                 )}
-                {totalWps > 0 && phaseWps.length === 0 && (
+                {!isDead && totalWps > 0 && phaseWps.length === 0 && (
                   <span className="data-readout" style={{ color: 'var(--text-tertiary)' }}>{totalWps}</span>
                 )}
               </div>

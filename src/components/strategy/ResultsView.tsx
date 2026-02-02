@@ -219,14 +219,19 @@ export function ResultsView() {
                   }}
                 >
                   <div
-                    className="w-4 h-4"
+                    className="w-4 h-4 flex items-center justify-center"
                     style={{
                       backgroundColor: p.is_alive ? color : 'var(--bg-elevated)',
-                      borderColor: isUser ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                      borderColor: p.is_alive ? (isUser ? 'var(--text-primary)' : 'var(--text-tertiary)') : 'var(--val-red)',
                       border: '2px solid',
-                      clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
+                      clipPath: p.is_alive ? 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' : 'none',
+                      borderRadius: p.is_alive ? 0 : '50%',
                     }}
-                  />
+                  >
+                    {!p.is_alive && (
+                      <span className="text-[7px] font-bold" style={{ color: 'var(--val-red)' }}>X</span>
+                    )}
+                  </div>
                   <div className="absolute top-5 left-1/2 -translate-x-1/2 text-[9px] whitespace-nowrap" style={{
                     color: 'var(--text-primary)',
                     fontFamily: 'var(--font-share-tech-mono)',
